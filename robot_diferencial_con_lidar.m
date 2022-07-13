@@ -34,27 +34,27 @@ dd = DifferentialDrive(R,L); % creacion del Simulador de robot diferencial
 %% Creacion del entorno
 load 2021_2c_tp_map.mat     %carga el mapa como occupancyMap en la variable 'map'
 
-if verMatlab.Release=='(R2016b)'
+%if verMatlab.Release=='(R2016b)'
     %Para versiones anteriores de MATLAB, puede ser necesario ajustar mapa
-    imagen_mapa = 1-double(imread('imagen_2021_2c_mapa_tp.tiff'))/255;
-    map = robotics.OccupancyGrid(imagen_mapa, 25);
-elseif verMatlab.Release(1:5)=='(R201'    % Completar con la version que tengan
+imagen_mapa = 1-double(imread('imagen_2021_2c_mapa_tp.tiff'))/255;
+map = robotics.OccupancyGrid(imagen_mapa, 25);
+%elseif verMatlab.Release(1:5)=='(R2018a)'    % Completar con la version que tengan
     %Ni idea que pasa, ver si el truco R2016b funciona
-    disp('ver si la compatibilidad R2016b funciona');
-else
-    disp(['Utilizando MATLAB ', verMatlab.Release]);
-end
+    %disp('ver si la compatibilidad R2016b funciona');
+%else
+    %disp(['Utilizando MATLAB ', verMatlab.Release]);
+%end
 
 %% Crear sensor lidar en simulador
 lidar = LidarSensor;
 lidar.sensorOffset = [0,0];   % Posicion del sensor en el robot (asumiendo mundo 2D)
-scaleFactor = 3;                %decimar lecturas de lidar acelera el algoritmo
+scaleFactor = 5;                %decimar lecturas de lidar acelera el algoritmo
 num_scans = 513/scaleFactor;
 hokuyo_step_a = deg2rad(-90);
 hokuyo_step_c = deg2rad(90);
 
 lidar.scanAngles = linspace(hokuyo_step_a,hokuyo_step_c,num_scans);
-lidar.maxRange = 5;
+lidar.maxRange = 10;
 
 %% Crear visualizacion
 viz = Visualizer2D;
@@ -81,12 +81,7 @@ pose(:,1) = initPose;
 
 %% Simulacion
 
-if verMatlab.Release=='(R2016b)'
-    r = robotics.Rate(1/sampleTime);    %matlab viejo no tiene funcion rateControl
-else
-    r = rateControl(1/sampleTime);  %definicion para R2020a, y posiblemente cualquier version nueva
-end
-
+r = robotics.Rate(1/sampleTime); %Para Matlab R2018b e inferiores
 for idx = 2:numel(tVec)   
 
     % Generar aqui criteriosamente velocidades lineales v_cmd y angulares w_cmd
