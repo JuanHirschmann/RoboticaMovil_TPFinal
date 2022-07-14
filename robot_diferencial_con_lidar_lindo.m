@@ -31,19 +31,8 @@ L = 0.235;                  % Distancia entre ruedas [m]
 diff_drive_obj = DifferentialDrive(WHEEL_RADIUS,L); % creacion del Simulador de robot diferencial
 
 %% Creacion del entorno
-load 2021_2c_tp_map.mat     %carga el mapa como occupancyMap en la variable 'MAP'
-
-%if verMatlab.Release=='(R2016b)'
-    %Para versiones anteriores de MATLAB, puede ser necesario ajustar mapa
-MAP_IMG = 1-double(imread('imagen_2021_2c_mapa_tp.tiff'))/255;
+MAP_IMG = 1-double(imread('mapa_2022_1c.tiff'))/255;
 MAP = robotics.OccupancyGrid(MAP_IMG, 25);
-%elseif verMatlab.Release(1:5)=='(R2018a)'    % Completar con la version que tengan
-    %Ni idea que pasa, ver si el truco R2016b funciona
-    %disp('ver si la compatibilidad R2016b funciona');
-%else
-    %disp(['Utilizando MATLAB ', verMatlab.Release]);
-%end
-
 %% Crear sensor lidar en simulador
 lidar = LidarSensor;
 lidar.sensorOffset = [0,0];   % Posicion del sensor en el robot (asumiendo mundo 2D)
@@ -56,16 +45,18 @@ lidar.scanAngles = linspace(LIDAR_ANGLE_START,LIDAR_ANGLE_END,NUM_SCANS);
 lidar.maxRange = 10;
 
 %% Crear visualizacion
-visualizer = Visualizer2D;
+visualizer = Visualizer2D();
+
+visualizer.hasWaypoints=true;
 visualizer.mapName = 'MAP';
 attachLidarSensor(visualizer,lidar);
-
+release(visualizer);
 %% Parametros de la Simulacion
 
 SIMULATION_DURATION = 3*60;          % Duracion total [s]
 SAMPLE_TIME = 0.1;                   % Sample time [s]
 INIT_POS = [2; 2.5; -pi/2];         % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
-
+WAYPOINTS=[1.5,1.3;4.3,2.1];
 % Inicializar vectores de tiempo, entrada y pose
 time_vec = 0:SAMPLE_TIME:SIMULATION_DURATION;         % Vector de Tiempo para duracion total
 
@@ -151,12 +142,26 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         % hacer algo con la medicion del lidar (ranges) y con el estado
         % actual de la odometria ( pose(:,time_step) )
         
-        
+        % Giro 360 e ir midiendo girando de a K° medimos y hacemos filtro de partículas.
+            %Posicion inicial
+            %Giramos 
+            %Medimos
+            %filtro de partículas
+            %...
+        % Tiramos A* para saber el camino (Ver de convolucionar mapa)
+            % A* nos da X posiciones de las que necesitamos sólo N. 
+            % Necesitamos N movimientos
+            % Actualizamos filtro de partículas y A* cada N movimientos
+            % (No medir si no actualizamos el filtro de particulas y actualizar con los N movimientos perdidos)
+        % Llegamos y descansamos 3 segundos. 
+        % Volver al inicio
         % Fin del COMPLETAR ACA
         
     %%
     % actualizar visualizacion
-    visualizer(pose(:,time_step),ranges)
+    %WAYPOINTS=[WAYPOINTS;rand(),rand()];
+    visualizer(pose(:,time_step),WAYPOINTS,ranges)
+    %WAYPOINTS=[1,1];
     waitfor(robot_sample_rate);
 end
 
