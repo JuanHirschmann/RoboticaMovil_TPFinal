@@ -74,17 +74,19 @@ pose(:,1) = INIT_POS;
 robot_sample_rate = robotics.Rate(1/SAMPLE_TIME); %Para Matlab R2018b e inferiores
 
 %Inicializo filtro de partículas
-PARTICLES_NUM=1000;
-POSITION_LIMITS=[3,2;4,2;pi,-pi];
+PARTICLES_NUM=100;
+POSITION_LIMITS=[5,1;4,0.5;pi,-pi];
 
-PARTICLE_FILTER_RESAMPLING_INTERVAL=1;  %Remuestrea cada 2 actualizaciones de odometría
+PARTICLE_FILTER_RESAMPLING_INTERVAL=2;  %Remuestrea cada 2 actualizaciones de odometría
 particle_filter=robotics.ParticleFilter; %Creo objeto filtro de partículas
 particle_filter.StateEstimationMethod='mean'; %Tomo el promedio de las partículas como mi estado mas probable
 particle_filter.StateTransitionFcn=@movement_model; %Función para actualizar la odometría
 particle_filter.MeasurementLikelihoodFcn=@measurement_model; %Función del modelo de medición
-particle_filter.ResamplingMethod='multinomial'; %si pongo sistematic se rompe% Remuestreo por SUS
-particle_filter.ResamplingPolicy.TriggerMethod='interval';
+policy=robotics.ResamplingPolicy;
+policy.ResamplingPolicy.TriggerMethod='interval'
+%particle_filter.ResamplingPolicy.TriggerMethod='interval';
 particle_filter.ResamplingPolicy.SamplingInterval=PARTICLE_FILTER_RESAMPLING_INTERVAL;
+particle_filter.ResamplingMethod='systematic'; % Remuestreo por SUS
 initialize(particle_filter,PARTICLES_NUM,POSITION_LIMITS)
 %particle_filter.predict(velocidad_linear,velocidad_angular,delta_t)
 %particle_filter.correct(medicion,mapa)
@@ -96,7 +98,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     % (mantener las velocidades bajas (v_cmd < 0.1) (w_cmd < 0.5) minimiza vibraciones y
     % mejora las mediciones.   
     v_cmd = vxRef(time_step-1);   % estas velocidades estan como ejemplo ...
-    w_cmd = 0;%wRef(time_step-1);    %      ... para que el robot haga algo.
+    w_cmd =0;% wRef(time_step-1);    %      ... para que el robot haga algo.
     %% COMPLETAR ACA:
         % generar velocidades para este timestep
         
@@ -145,11 +147,10 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         end
     end
     particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
-    if mod(time_step,10)==0
-        
-        particle_filter.correct(ranges,MAP,MAX_RANGE);
-    
+    if mod(time_step,100)==0
+            particle_filter.correct(ranges,MAP,MAX_RANGE)
     end
+    %particle_filter.correct(ranges,MAP,MAX_RANGE);
     %estimacion_estado=getStateEstimate(particle_filter)
     
     %%
