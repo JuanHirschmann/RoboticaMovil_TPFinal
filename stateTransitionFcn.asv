@@ -1,6 +1,0 @@
-%Función para actualizar la odometría de las particulas en el filtro
-%Tiene que tener este nombre porque es llamada por
-%robotics.ParticleFilter.predict()
-function predictParticles=stateTransitionFcn(pf,prevParticles)
-    display("")
-end

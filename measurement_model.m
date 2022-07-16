@@ -2,34 +2,37 @@
 %es llamada por robotics.ParticleFilter.correct()
 %Todos los likelihoods me dan 0
 function likelihood=measurement_model(particle_filter,predicted_particles,measurement,varargin)
-    SIGMA_MODEL=0.5;
-    DOWNSAMPLE_FACTOR=40;
+    SIGMA_MODEL=0.8;
+    ANGLE_LENGTH=10; %Me quedo con sólo estos angulos
+    DOWNSCALE_FACTOR=int32(length(measurement)/ANGLE_LENGTH);
     map=varargin{1};
     
     display("Calcule el Likelihood de la medición")
-    angle_length=int32(length(measurement)/DOWNSAMPLE_FACTOR);
-    angles=linspace(-pi/2,pi/2,angle_length); %Esto esta hardcodeado
+    angles=linspace(-pi/2,pi/2,ANGLE_LENGTH); %Esto esta hardcodeado
+    measurement=downsample(measurement,DOWNSCALE_FACTOR); %Sub muestreo las mediciones
     max_range=varargin{2};
     likelihood=ones(particle_filter.NumParticles,1);
+    measurement(isnan(measurement))=max_range;
     for row =1:particle_filter.NumParticles
         particle_position=predicted_particles(row,:);
-        ray_intercept_point=rayIntersection(map,particle_position,angles,max_range);
-        particle_measurement=abs(ray_intercept_point-particle_position(1:2));
-        if getOccupancy(map,particle_position(1:2))>0
-            likelihood(row)=0;
-        else    
-            for index = 1:length(angles) 
-                if ~isnan(measurement(index*DOWNSAMPLE_FACTOR)) && ~isnan(particle_measurement(index)) %Considero que cuando son NaN el likelihood es 1  
-
-                    likelihood(row)=1;%likelihood(row)*(normpdf(measurement(index*DOWNSAMPLE_FACTOR),particle_measurement(index),SIGMA_MODEL));
-
-                %elseif isnan(measurement(index)) && isnan(measurement(index))
-                    %likelihood(row)=likelihood(row)*0.1;
-                %else 
-                    %likelihood(row)=likelihood(row)^2; %Reduzco el likelihood
+        if getOccupancy(map,particle_position(1:2))<0.5
+            ray_intercept_point=rayIntersection(map,particle_position,angles,max_range);
+            particle_measurement=abs(ray_intercept_point-particle_position(1:2));
+            particle_measurement(isnan(particle_measurement))=max_range;
+            for index = 1:ANGLE_LENGTH 
+                if ~isnan(measurement(index)) && ~isnan(particle_measurement(index)) 
+                    likelihood(row)=likelihood(row)*(normpdf(measurement(index),particle_measurement(index),SIGMA_MODEL));
+                elseif ~(isnan(measurement(index)) && isnan(measurement(index))) 
+                    %Si uno es NaN y el otro no bajo el likelihood
+                    likelihood(row)=likelihood(row)*0.0000001; %Bajo likelihood
+                else
+                    likelihood(row)=likelihood(row)*0.00001;
+            
                 end
             end
+        else
+            likelihood(row)=0;
         end
-        likelihood=likelihood;
+        
     end
 end
