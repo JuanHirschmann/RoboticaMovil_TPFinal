@@ -55,7 +55,7 @@ release(visualizer);
 
 SIMULATION_DURATION = 3*60;          % Duracion total [s]
 SAMPLE_TIME = 0.1;                   % Sample time [s]
-INIT_POS = random_empty_point(MAP,[5,1],[5,1]);%[2.5; 1.5; -pi/2];         % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
+INIT_POS = [2.75,2.25,0];%random_empty_point(MAP,[5,1],[5,1]);%[2.5; 1.5; -pi/2];         % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
 WAYPOINTS=[1.5,1.3;4.3,2.1;];
 % Inicializar vectores de tiempo, entrada y pose
 time_vec = 0:SAMPLE_TIME:SIMULATION_DURATION;         % Vector de Tiempo para duracion total
@@ -76,19 +76,19 @@ robot_sample_rate = robotics.Rate(1/SAMPLE_TIME); %Para Matlab R2018b e inferior
 
 %Inicializo filtro de partículas
 
-PARTICLES_NUM=2000; %Mas alla de 2000 se pone espeso
+PARTICLES_NUM=1000; %Mas alla de 2000 se pone espeso
 POSITION_LIMITS=[5,1;4,1;pi,-pi];
 X_LIMS=[5,1];
-Y_LIMS=[5,1];
+Y_LIMS=[5,0];
 PARTICLE_FILTER_RESAMPLING_INTERVAL=1;  %Remuestrea cada 2 actualizaciones de odometría
-PREDICTION_INTERVAL=5;
-OUTLIERS_PCT=0.01;
+PREDICTION_INTERVAL=25;
+OUTLIERS_PCT=0.05;
 particle_filter=robotics.ParticleFilter; %Creo objeto filtro de partículas
 particle_filter.StateEstimationMethod='mean'; %Tomo el promedio de las partículas como mi estado mas probable
 particle_filter.StateTransitionFcn=@movement_model; %Función para actualizar la odometría
 particle_filter.MeasurementLikelihoodFcn=@measurement_model; %Función del modelo de medición
 particle_filter.ResamplingMethod='systematic'; % Remuestreo por SUS
-particle_filter.ResamplingPolicy.TriggerMethod='interval';
+particle_filter.ResamplingPolicy.TriggerMethod='interval'; %Por cantidad de particulas efectivas
 particle_filter.ResamplingPolicy.SamplingInterval=PARTICLE_FILTER_RESAMPLING_INTERVAL;
 initialize(particle_filter,PARTICLES_NUM,POSITION_LIMITS)
 
@@ -154,7 +154,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     if time_step<LOCATION_ITERATION %Busco la posición incial
         particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
         if mod(time_step,PREDICTION_INTERVAL)==0
-            particle_filter.correct(ranges,MAP,MAX_RANGE);
+            particle_filter.correct(ranges,MAP,MAX_RANGE,"mse");
             particle_filter.Particles=generate_outliers(particle_filter,OUTLIERS_PCT,MAP,X_LIMS,Y_LIMS);
         end
     else
@@ -162,7 +162,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         particle_filter.State %Este es el estado estimado
         particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
          if mod(time_step,PREDICTION_INTERVAL)==0
-            particle_filter.correct(ranges,MAP,MAX_RANGE);
+            particle_filter.correct(ranges,MAP,MAX_RANGE,"mse");
          end
     end
     

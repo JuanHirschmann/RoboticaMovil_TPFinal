@@ -22,6 +22,7 @@ classdef Visualizer2D < matlab.System & matlab.system.mixin.CustomIcon
         hasLidar = false;           % Accept lidar inputs
     end
     properties
+       %objStep=0; 
        sensorOffset = [0 0];        % Lidar sensor offset (x,y) [m] 
        scanAngles = [-pi/4,0,pi/4]; % Scan angles [rad]
     end
@@ -29,6 +30,7 @@ classdef Visualizer2D < matlab.System & matlab.system.mixin.CustomIcon
         hasObjDetector = false;     % Accept object detections
     end
     properties(Nontunable)
+                         % Ver en que iteración estos mostrando
        objDetectorOffset = [0 0];   % Object detector offset (x,y) [m] 
        objDetectorAngle = 0;        % Object detector angle [rad]
        objDetectorFOV = pi/4;       % Object detector field of view [rad] 
@@ -214,6 +216,7 @@ classdef Visualizer2D < matlab.System & matlab.system.mixin.CustomIcon
                     else
                         set(obj.LidarHandles(idx),'xdata',[],'ydata',[]); 
                     end 
+                    
                 end
             end         
             
@@ -289,6 +292,9 @@ classdef Visualizer2D < matlab.System & matlab.system.mixin.CustomIcon
             
             % Update the figure
             drawnow('limitrate')
+            %obj.objStep=obj.objStep+1;
+            %filename = sprintf('plots/loc_mse_outliers%05d.png', obj.objStep+1);
+            %print(filename, '-dpng');
             
         end
 
