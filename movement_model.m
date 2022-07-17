@@ -25,7 +25,7 @@ function predictParticles=movement_model(particle_filter,prev_particles,varargin
         predictParticles(row,:)=prev_particles(row,:)+[v_/w_*(sin(theta+w_*time_step)-sin(theta)),...
                                                          v_/w_*(cos(theta)-cos(theta+w_*time_step)),...
                                                          (w_+s_)*time_step];
-        predictParticles(row,3)=wrapToPi(predictParticles(row,3));
+        %predictParticles(row,3)=wrapToPi(predictParticles(row,3));
     end
     
 end

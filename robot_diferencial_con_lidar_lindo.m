@@ -59,12 +59,13 @@ INIT_POS = random_empty_point(MAP,[5,1],[5,1]);%[2.5; 1.5; -pi/2];         % Pos
 WAYPOINTS=[1.5,1.3;4.3,2.1;];
 % Inicializar vectores de tiempo, entrada y pose
 time_vec = 0:SAMPLE_TIME:SIMULATION_DURATION;         % Vector de Tiempo para duracion total
-
+LOCATION_TIME=20; %20 segundos para ubicarse
+LOCATION_ITERATION=int32(20/SAMPLE_TIME); %Iteraciones hasta ubicarse
 %% generar comandos a modo de ejemplo
-vxRef = 0.05*ones(size(time_vec));   % Velocidad lineal a ser comandada
-wRef = zeros(size(time_vec));       % Velocidad angular a ser comandada
-wRef(time_vec < 5) = -0.2;
-wRef(time_vec >=7.5) = 0.2;
+vxRef = [zeros(LOCATION_ITERATION,1);0.05*ones(length(time_vec),1)];   % Velocidad lineal a ser comandada
+wRef = [0.5*ones(LOCATION_ITERATION,1);0.05*zeros(length(time_vec),1)];       % Velocidad angular a ser comandada
+%wRef(time_vec < 5) = -0.2;
+%wRef(time_vec >=7.5) = 0.2;
 
 pose = zeros(3,numel(time_vec));    % Inicializar matriz de pose
 pose(:,1) = INIT_POS;
@@ -74,10 +75,14 @@ pose(:,1) = INIT_POS;
 robot_sample_rate = robotics.Rate(1/SAMPLE_TIME); %Para Matlab R2018b e inferiores
 
 %Inicializo filtro de partículas
-PARTICLES_NUM=1000;
-POSITION_LIMITS=[5,1;4,1;pi,-pi];
 
+PARTICLES_NUM=2000; %Mas alla de 2000 se pone espeso
+POSITION_LIMITS=[5,1;4,1;pi,-pi];
+X_LIMS=[5,1];
+Y_LIMS=[5,1];
 PARTICLE_FILTER_RESAMPLING_INTERVAL=1;  %Remuestrea cada 2 actualizaciones de odometría
+PREDICTION_INTERVAL=5;
+OUTLIERS_PCT=0.01;
 particle_filter=robotics.ParticleFilter; %Creo objeto filtro de partículas
 particle_filter.StateEstimationMethod='mean'; %Tomo el promedio de las partículas como mi estado mas probable
 particle_filter.StateTransitionFcn=@movement_model; %Función para actualizar la odometría
@@ -86,6 +91,7 @@ particle_filter.ResamplingMethod='systematic'; % Remuestreo por SUS
 particle_filter.ResamplingPolicy.TriggerMethod='interval';
 particle_filter.ResamplingPolicy.SamplingInterval=PARTICLE_FILTER_RESAMPLING_INTERVAL;
 initialize(particle_filter,PARTICLES_NUM,POSITION_LIMITS)
+
 %particle_filter.predict(velocidad_linear,velocidad_angular,delta_t)
 %particle_filter.correct(medicion,mapa)
 
@@ -95,8 +101,8 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     % -0.5 <= v_cmd <= 0.5 and -4.25 <= w_cmd <= 4.25
     % (mantener las velocidades bajas (v_cmd < 0.1) (w_cmd < 0.5) minimiza vibraciones y
     % mejora las mediciones.   
-    v_cmd = 0;%vxRef(time_step-1);   % estas velocidades estan como ejemplo ...
-    w_cmd = 1;%wRef(time_step-1);    %      ... para que el robot haga algo.
+    v_cmd = vxRef(time_step-1);   % estas velocidades estan como ejemplo ...
+    w_cmd = wRef(time_step-1);    %      ... para que el robot haga algo.
     %% COMPLETAR ACA:
         % generar velocidades para este timestep
         
@@ -145,11 +151,22 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         end
     end
     
-    particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
-    if mod(time_step,5)==0
-        particle_filter.correct(ranges,MAP,MAX_RANGE);
-        %Agregaría poner algunas particulas distribuidas 
-    end%estimacion_estado=getStateEstimate(particle_filter)
+    if time_step<LOCATION_ITERATION %Busco la posición incial
+        particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
+        if mod(time_step,PREDICTION_INTERVAL)==0
+            particle_filter.correct(ranges,MAP,MAX_RANGE);
+            particle_filter.Particles=generate_outliers(particle_filter,OUTLIERS_PCT,MAP,X_LIMS,Y_LIMS);
+        end
+    else
+        display("Encontré mi posición")
+        particle_filter.State %Este es el estado estimado
+        particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
+         if mod(time_step,PREDICTION_INTERVAL)==0
+            particle_filter.correct(ranges,MAP,MAX_RANGE);
+         end
+    end
+    
+    %estimacion_estado=getStateEstimate(particle_filter)
     
     %%
     % Aca el robot ya ejecutÃ³ las velocidades comandadas y devuelve en la

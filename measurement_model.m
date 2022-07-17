@@ -1,8 +1,8 @@
 %Función para calcular el likelikhood de la medicion de cada partícula
 %es llamada por robotics.ParticleFilter.correct()
-%Todos los likelihoods me dan 0
+%¿Como tratar a los NaN?
 function likelihood=measurement_model(particle_filter,predicted_particles,measurement,varargin)
-    SIGMA_MODEL=0.8;
+    SIGMA_MODEL=0.09;%0.5;
     ANGLE_LENGTH=10; %Me quedo con sólo estos angulos
     DOWNSCALE_FACTOR=int32(length(measurement)/ANGLE_LENGTH);
     map=varargin{1};
@@ -24,9 +24,9 @@ function likelihood=measurement_model(particle_filter,predicted_particles,measur
                     likelihood(row)=likelihood(row)*(normpdf(measurement(index),particle_measurement(index),SIGMA_MODEL));
                 elseif ~(isnan(measurement(index)) && isnan(measurement(index))) 
                     %Si uno es NaN y el otro no bajo el likelihood
-                    likelihood(row)=likelihood(row)*0.0000001; %Bajo likelihood
+                    likelihood(row)=likelihood(row)*0.00000001; %Bajo likelihood
                 else
-                    likelihood(row)=likelihood(row)*0.00001;
+                    likelihood(row)=likelihood(row)*0.0000001;
             
                 end
             end
