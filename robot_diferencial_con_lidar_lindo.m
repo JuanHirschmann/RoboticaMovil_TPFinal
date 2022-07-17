@@ -109,7 +109,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         % generar velocidades para este timestep
         % ACA TIENE QUE IR EL A*
         % fin del COMPLETAR ACA
-    start = WAYPOINTS(3,:);
+    start = [INIT_POS(1),INIT_POS(2)];
     goalA = WAYPOINTS(1,:);
     goalB = WAYPOINTS(2,:);
     planner = robotics.PRM(MAP);
