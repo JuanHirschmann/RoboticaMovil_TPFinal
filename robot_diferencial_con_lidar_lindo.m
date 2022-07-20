@@ -97,6 +97,9 @@ initialize(particle_filter,PARTICLES_NUM,POSITION_LIMITS)
 %particle_filter.predict(velocidad_linear,velocidad_angular,delta_t)
 %particle_filter.correct(medicion,mapa)
 
+xyA = A_star(MAP_IMG,INIT_POS,WAYPOINTS(1,:)); % [INIT_POS(1),INIT_POS(2);...;WAYPOINTS(1,1),WAYPOINTS(1,2)]
+xyB = A_star(MAP_IMG,WAYPOINTS(1,:),WAYPOINTS(2,:));
+
 for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
 
     % Generar aqui criteriosamente velocidades lineales v_cmd y angulares w_cmd
