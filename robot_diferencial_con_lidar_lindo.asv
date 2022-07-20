@@ -55,15 +55,15 @@ release(visualizer);
 
 SIMULATION_DURATION = 3*60;          % Duracion total [s]
 SAMPLE_TIME = 0.1;                   % Sample time [s]
-INIT_POS = random_empty_point(MAP,[5,1],[5,1]);%[2.5; 1.5; -pi/2];         % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
+INIT_POS = [2.75,2.25,0];%random_empty_point(MAP,[5,1],[5,1]);%[2.5; 1.5; -pi/2];         % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
 WAYPOINTS=[1.5,1.3;4.3,2.1;];
 % Inicializar vectores de tiempo, entrada y pose
 time_vec = 0:SAMPLE_TIME:SIMULATION_DURATION;         % Vector de Tiempo para duracion total
 LOCATION_TIME=20; %20 segundos para ubicarse
 LOCATION_ITERATION=int32(20/SAMPLE_TIME); %Iteraciones hasta ubicarse
 %% generar comandos a modo de ejemplo
-ANGULAR_SPEED=0.3;
-LINEAR_SPEED=0.1;
+ANGULAR_SPEED=0.5;
+LINEAR_SPEED=0.5;
 vxRef = zeros(LOCATION_ITERATION,1);   % Velocidad lineal a ser comandada
 wRef = ANGULAR_SPEED*ones(LOCATION_ITERATION,1);       % Velocidad angular a ser comandada
 %wRef(time_vec < 5) = -0.2;
@@ -78,7 +78,7 @@ robot_sample_rate = robotics.Rate(1/SAMPLE_TIME); %Para Matlab R2018b e inferior
 
 %Inicializo filtro de partículas
 
-PARTICLES_NUM=1000; %Mas alla de 2000 se pone espeso
+PARTICLES_NUM=500; %Mas alla de 2000 se pone espeso
 POSITION_LIMITS=[5,1;4,1;pi,-pi];
 X_LIMS=[5,1];
 Y_LIMS=[5,0];
@@ -164,27 +164,20 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
             particle_filter.correct(ranges,MAP,MAX_RANGE,"mse");
             particle_filter.Particles=generate_outliers(particle_filter,OUTLIERS_PCT,MAP,X_LIMS,Y_LIMS);
         end
-    elseif length(wRef)==time_step-1 %Tengo que planear la ruta
+    else
         plan_path=true;
-        goal=WAYPOINTS(1,:); %Objetivo en metros
-        display("Planeo ruta")
         estimacion_estado=particle_filter.State;
         if plan_path==true
-            
-            speed_cmd=generate_rotate_and_translation_cmd(LINEAR_SPEED,ANGULAR_SPEED,estimacion_estado,goal,SAMPLE_TIME);
+            speed_cmd=generate_rotate_and_translation_cmd(LINEAR_SPEED,ANGULAR_POSE,estimacion_estado,WAYPOINTS(1,:),SAMPLE_RATE);
             plan_path=false;
-            vxRef=[vxRef;speed_cmd(:,1)];
-            wRef=[wRef;speed_cmd(:,2)];
-        end
-    else
+            v_cmd=s
+        
         particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
          if mod(time_step,PREDICTION_INTERVAL)==0
             particle_filter.correct(ranges,MAP,MAX_RANGE,"mse");
-            particle_filter.Particles=generate_outliers(particle_filter,OUTLIERS_PCT,MAP,X_LIMS,Y_LIMS);
          end
     end
-
-   
+    
     
     %%
     % Aca el robot ya ejecutÃ³ las velocidades comandadas y devuelve en la
@@ -212,7 +205,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         
     %%
     % actualizar visualizacion
-    markings=[WAYPOINTS(1,:);particle_filter.State(1:2)];
+    markings=[WAYPOINTS;particle_filter.Particles(:,1:2)];
     visualizer(pose(:,time_step),markings,ranges)
     %WAYPOINTS=[1,1];
     waitfor(robot_sample_rate);

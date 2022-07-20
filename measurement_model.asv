@@ -18,14 +18,12 @@ function likelihood=measurement_model(particle_filter,predicted_particles,measur
     measurement=downsample(measurement,DOWNSCALE_FACTOR); %Sub muestreo las mediciones
     likelihood=ones(particle_filter.NumParticles,1);
     measurement(isnan(measurement))=max_range;
-    x_lims=map.XWorldLimits;
-    y_lims=map.YWorldLimits;
+    x_lower_lim,x_upper_lim=map.XWorldLimits;
+    y_lower_lim,y_upper_lim=map.XWorldLimits;
     for row =1:particle_filter.NumParticles
         particle_position=predicted_particles(row,:);
-        if particle_position(1)<=x_lims(1) || particle_position(1)>=x_lims(2)...
-                ||  particle_position(2)<=y_lims(1) || particle_position(2)>=y_lims(2)   
-            likelihood(row)=0;
-        elseif getOccupancy(map,particle_position(1:2))<0.5
+        if particle_position(1)<x_lower_lim || particle_position(1)>x_upper_lim|| 
+        if getOccupancy(map,particle_position(1:2))<0.5
             ray_intercept_point=rayIntersection(map,particle_position,angles,max_range);
             particle_measurement=sqrt(sum((ray_intercept_point-particle_position(1:2)).^2,2));
             particle_measurement(isnan(particle_measurement))=max_range;
