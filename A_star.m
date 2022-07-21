@@ -1,8 +1,8 @@
-%% A*
-%clc;
 function xy = A_star(MAP_IMG,INIT_POS,GOAL)
+
 MAP = robotics.OccupancyGrid(MAP_IMG, 25);
-MAP.inflate(0.005);
+MAP.inflate(0.01);
+
 map_gridsize = MAP.GridSize;
 h = map_gridsize(1);
 w = map_gridsize(2);
@@ -21,7 +21,7 @@ closed_list = zeros(w,h);% cells that have been visited
 % node, respectively. Following these starting at the goal 
 % until -1 is reached returns the computed path, see at the bottom
 previous_x = zeros(w,h)-1;
-previous_y = zeros(w,h)-1; %%El camino que se busca seguir es el que esté en estas matrices!!!!!
+previous_y = zeros(w,h)-1;
 
 while (parent(1) ~= goal(1) || parent(2) ~= goal(2))
 
@@ -72,18 +72,15 @@ while (parent(1) ~= goal(1) || parent(2) ~= goal(2))
   end
 end
 
-% visualization: from the goal to the start,
-% draw the path as blue dots
+
 parent = [goal(1), goal(2)];
-xy = parent;
-while previous_x(parent(1), parent(2))>=0
-  
+xy = [];
+while previous_x(parent(1), parent(2)) >= 0
+  xy = [xy;[parent(1), parent(2)]];  
   child_y = previous_y(parent(1), parent(2));
   child_x = previous_x(parent(1), parent(2));
   child = [child_x, child_y];
-  parent = child;
-  xy = [xy;[parent(1), parent(2)]];
-  
+  parent = child; 
 end
 
 %disp 'done'
@@ -92,5 +89,4 @@ end
 %disp 'number of nodes visited: ', disp(sum(closed_list(:)));
 
 xy = [xy(:,1)*MAP.XWorldLimits(2)/MAP.GridSize(2),xy(:,2)*MAP.YWorldLimits(2)/MAP.GridSize(1)];
-
-xy = flip(xy,1);
+xy = flip(xy,1); 

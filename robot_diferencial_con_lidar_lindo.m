@@ -59,14 +59,17 @@ release(visualizer);
 SIMULATION_DURATION = 3*60;          % Duracion total [s]
 SAMPLE_TIME = 0.1;                   % Sample time [s]
 INIT_POS = random_empty_point(MAP,[5,1],[5,1]);%[2.5; 1.5; -pi/2];         % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
-WAYPOINTS=[1.5,1.3;4.3,2.1;];
+puntoA = [1.5,1.3];
+puntoB = [4.3,2.1];
+WAYPOINTS=[puntoA;puntoB];
 % Inicializar vectores de tiempo, entrada y pose
 time_vec = 0:SAMPLE_TIME:SIMULATION_DURATION;         % Vector de Tiempo para duracion total
 LOCATION_TIME = 20; %20 segundos para ubicarse
 LOCATION_ITERATION = int32(20/SAMPLE_TIME); %Iteraciones hasta ubicarse
+
 %% generar comandos a modo de ejemplo
 ANGULAR_SPEED = 0.3;
-LINEAR_SPEED = 0.1;
+LINEAR_SPEED = 0.2;
 vxRef = zeros(LOCATION_ITERATION,1);   % Velocidad lineal a ser comandada
 wRef = ANGULAR_SPEED*ones(LOCATION_ITERATION,1);       % Velocidad angular a ser comandada
 %wRef(time_vec < 5) = -0.2;
@@ -79,19 +82,19 @@ pose(:,1) = INIT_POS;
 
 robot_sample_rate = robotics.Rate(1/SAMPLE_TIME); %Para Matlab R2018b e inferiores
 
-%Inicializo filtro de partÃ­culas
+%Inicializo filtro de partículas
 
 PARTICLES_NUM = 1000; %Mas alla de 2000 se pone espeso
 POSITION_LIMITS = [5,1;4,1;pi,-pi];
 X_LIMS = [5,1];
 Y_LIMS = [5,0];
-PARTICLE_FILTER_RESAMPLING_INTERVAL = 1;  %Remuestrea cada 2 actualizaciones de odometrÃ­a
+PARTICLE_FILTER_RESAMPLING_INTERVAL = 1;  %Remuestrea cada 2 actualizaciones de odometría
 PREDICTION_INTERVAL = 25;
 OUTLIERS_PCT = 0.05;
-particle_filter = robotics.ParticleFilter; %Creo objeto filtro de partÃ­culas
-particle_filter.StateEstimationMethod = 'mean'; %Tomo el promedio de las partÃ­culas como mi estado mas probable
-particle_filter.StateTransitionFcn = @movement_model; %FunciÃ³n para actualizar la odometrÃ­a
-particle_filter.MeasurementLikelihoodFcn = @measurement_model; %FunciÃ³n del modelo de mediciÃ³n
+particle_filter = robotics.ParticleFilter; %Creo objeto filtro de partículas
+particle_filter.StateEstimationMethod = 'mean'; %Tomo el promedio de las partículas como mi estado mas probable
+particle_filter.StateTransitionFcn = @movement_model; %Función para actualizar la odometría
+particle_filter.MeasurementLikelihoodFcn = @measurement_model; %Función del modelo de medición
 particle_filter.ResamplingMethod = 'systematic'; % Remuestreo por SUS
 particle_filter.ResamplingPolicy.TriggerMethod = 'interval'; %Por cantidad de particulas efectivas
 particle_filter.ResamplingPolicy.SamplingInterval = PARTICLE_FILTER_RESAMPLING_INTERVAL;
@@ -100,11 +103,14 @@ initialize(particle_filter,PARTICLES_NUM,POSITION_LIMITS)
 %particle_filter.predict(velocidad_linear,velocidad_angular,delta_t)
 %particle_filter.correct(medicion,mapa)
 
-xyA = A_star(MAP_IMG,INIT_POS,WAYPOINTS(1,:)); % [INIT_POS(1),INIT_POS(2);...;WAYPOINTS(1,1),WAYPOINTS(1,2)]
-xyB = A_star(MAP_IMG,WAYPOINTS(1,:),WAYPOINTS(2,:));
+xyA = A_star(MAP_IMG,INIT_POS,WAYPOINTS(1,:)); % [...;goalA(1),goalA(2)]
+xyA = reduce_path(xyA);
+xyB = [4.5,5.5]; %Inicializo en un punto que no puede estar nunca para que no falle cuando hago una comparación. Después este valor se tira
+xy = xyA;
+j=1;
 
 %%
-for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulaciÃ³n
+for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
 
     % Generar aqui criteriosamente velocidades lineales v_cmd y angulares w_cmd
     % -0.5 <= v_cmd <= 0.5 and -4.25 <= w_cmd <= 4.25
@@ -130,7 +136,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulaciÃ³n
         cmdMsg.Angular.Z = w_cmd;
         send(cmdPub,cmdMsg);
         
-        % Recibir datos de lidar y odometrÃƒÂ­a
+        % Recibir datos de lidar y odometrÃ­a
         scanMsg = receive(laserSub);
         odompose = odomSub.LatestMessage;
         
@@ -139,7 +145,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulaciÃ³n
         ranges = ranges_full(1:DOWNSAMPLE_FACTOR:end);
         %ranges = circshift(ranges,length(ranges)/2);  % verificar
         ranges(ranges==0)=NaN; % lecturas erroneas y maxrange
-        % Obtener pose del robot [x,y,yaw] de datos de odometrÃƒÂ­a (integrado por encoders).
+        % Obtener pose del robot [x,y,yaw] de datos de odometrÃ­a (integrado por encoders).
         odomQuat = [odompose.Pose.Pose.Orientation.W, odompose.Pose.Pose.Orientation.X, ...
         odompose.Pose.Pose.Orientation.Y, odompose.Pose.Pose.Orientation.Z];
         odomRotation = quat2eul(odomQuat);
@@ -165,7 +171,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulaciÃ³n
         end
     end
     
-    if time_step < LOCATION_ITERATION %Busco la posiciÃ³n incial
+    if time_step < LOCATION_ITERATION %Busco la posición incial
         particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
         if mod(time_step,PREDICTION_INTERVAL) == 0
             particle_filter.correct(ranges,MAP,MAX_RANGE,"mse");
@@ -173,13 +179,26 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulaciÃ³n
         end
     elseif length(wRef) == time_step-1 %Tengo que planear la ruta
         plan_path = true;
-        goal = WAYPOINTS(1,:); %Objetivo en metros
+        %goal = WAYPOINTS(1,:); %Objetivo en metros
+        goal = xy(j,:);
+        j = j+1;
         display("Planeo ruta")
         estimacion_estado = particle_filter.State;
         
         if plan_path == true  
+            plan_path = false;          
             speed_cmd = generate_rotate_and_translation_cmd(LINEAR_SPEED,ANGULAR_SPEED,estimacion_estado,goal,SAMPLE_TIME);
-            plan_path = false;
+            if goal(1,1) == xyA(end,1) && goal(1,2) == xyA(end,2) 
+                speed_cmd = [speed_cmd;zeros(3/SAMPLE_TIME,2)];
+                disp 'Voy a esperar 3 segundos'
+                xyB = A_star(MAP_IMG,xyA(end,:),puntoB); %Creo trayectoria desde el punto A al punto B
+                xyB = reduce_path(xyB);
+                xy = [xy;xyB];
+            end
+            if goal(1,1) == xyB(end,1) && goal(1,2) == xyB(end,2)
+                disp 'Llegue al final'
+                break; %Esto está rari
+            end
             vxRef = [vxRef;speed_cmd(:,1)];
             wRef = [wRef;speed_cmd(:,2)];
         end
@@ -194,24 +213,24 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulaciÃ³n
    
     
     %%
-    % Aca el robot ya ejecutÃƒÂ³ las velocidades comandadas y devuelve en la
+    % Aca el robot ya ejecutÃ³ las velocidades comandadas y devuelve en la
     % variable ranges la medicion del lidar para ser usada y
-    % en la variable pose(:,time_step) la odometrÃƒÂ­a actual.
+    % en la variable pose(:,time_step) la odometrÃ­a actual.
     
     %% COMPLETAR ACA:
         % hacer algo con la medicion del lidar (ranges) y con el estado
         % actual de la odometria ( pose(:,time_step) )
         
-        % Giro 360 e ir midiendo girando de a KÂ° medimos y hacemos filtro de partÃ­culas.
+        % Giro 360 e ir midiendo girando de a K° medimos y hacemos filtro de partículas.
             %Posicion inicial
             %Giramos 
             %Medimos
-            %filtro de partÃ­culas
+            %filtro de partículas
             %...
         % Tiramos A* para saber el camino (Ver de convolucionar mapa)
-            % A* nos da X posiciones de las que necesitamos sÃ³lo N. 
+            % A* nos da X posiciones de las que necesitamos sólo N. 
             % Necesitamos N movimientos
-            % Actualizamos filtro de partÃ­culas y A* cada N movimientos
+            % Actualizamos filtro de partículas y A* cada N movimientos
             % (No medir si no actualizamos el filtro de particulas y actualizar con los N movimientos perdidos)
         % Llegamos y descansamos 3 segundos. 
         % Volver al inicio
@@ -219,9 +238,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulaciÃ³n
         
     %%
     % actualizar visualizacion
-    markings=[WAYPOINTS(1,:);particle_filter.State(1:2)];
+    markings=[WAYPOINTS;particle_filter.State(1:2)];
     visualizer(pose(:,time_step),markings,ranges)
-    %WAYPOINTS=[1,1];
     waitfor(robot_sample_rate);
 end
-

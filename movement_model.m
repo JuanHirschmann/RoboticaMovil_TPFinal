@@ -15,7 +15,7 @@ function predictParticles=movement_model(particle_filter,prev_particles,varargin
     v=varargin{1};
     w=varargin{2};
     time_step=varargin{3};
-    display("Use modelo de movimiento")
+    %display("Use modelo de movimiento")
     predictParticles=zeros(size(prev_particles));
     for row =1:particle_filter.NumParticles %Si la velocidad angular es 0 tiene chances de que se enoje
         v_=v+normrnd(0,ALPHA_1*sqrt(abs(v))+ALPHA_2*sqrt(abs(w)));
