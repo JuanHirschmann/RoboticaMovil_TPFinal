@@ -68,8 +68,8 @@ LOCATION_TIME = 20; %20 segundos para ubicarse
 LOCATION_ITERATION = int32(20/SAMPLE_TIME); %Iteraciones hasta ubicarse
 
 %% generar comandos a modo de ejemplo
-ANGULAR_SPEED = 0.3;
-LINEAR_SPEED = 0.2;
+ANGULAR_SPEED = 0.25;
+LINEAR_SPEED = 0.1;
 vxRef = zeros(LOCATION_ITERATION,1);   % Velocidad lineal a ser comandada
 wRef = ANGULAR_SPEED*ones(LOCATION_ITERATION,1);       % Velocidad angular a ser comandada
 %wRef(time_vec < 5) = -0.2;
@@ -103,12 +103,14 @@ initialize(particle_filter,PARTICLES_NUM,POSITION_LIMITS)
 %particle_filter.predict(velocidad_linear,velocidad_angular,delta_t)
 %particle_filter.correct(medicion,mapa)
 
-xyA = A_star(MAP_IMG,INIT_POS,WAYPOINTS(1,:)); % [...;goalA(1),goalA(2)]
-xyA = reduce_path(xyA);
+%xyA = A_star(MAP_IMG,INIT_POS,WAYPOINTS(1,:)); % [...;goalA(1),goalA(2)]
+%xyA = reduce_path(xyA);
+%xy = xyA;
 xyB = [4.5,5.5]; %Inicializo en un punto que no puede estar nunca para que no falle cuando hago una comparación. Después este valor se tira
-xy = xyA;
-j=1;
-
+corr_i = 1;
+A_visited = false;
+B_visited = false;
+LOCALIZED = false;
 %%
 for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
 
@@ -171,15 +173,38 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         end
     end
     
+    if LOCALIZED == false && time_step >= LOCATION_ITERATION
+        LOCALIZED = true;
+        xyA = A_star(MAP_IMG,particle_filter.State(1:2),puntoA); % [...;goalA(1),goalA(2)]
+        xy = reduce_path(xyA);
+        j=1;
+    end
     if time_step < LOCATION_ITERATION %Busco la posición incial
         particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
         if mod(time_step,PREDICTION_INTERVAL) == 0
             particle_filter.correct(ranges,MAP,MAX_RANGE,"mse");
             particle_filter.Particles = generate_outliers(particle_filter,OUTLIERS_PCT,MAP,X_LIMS,Y_LIMS);
         end
+       
     elseif length(wRef) == time_step-1 %Tengo que planear la ruta
+        if B_visited == true
+            disp 'Llegué al final';
+            disp(time_step);
+            break
+        end
         plan_path = true;
         %goal = WAYPOINTS(1,:); %Objetivo en metros
+        if corr_i == 5
+            if A_visited == false
+                xyA = A_star(MAP_IMG,particle_filter.State(1:2),puntoA);
+                xy = reduce_path(xyA);
+            else
+                xyB = A_star(MAP_IMG,particle_filter.State(1:2),puntoB);
+                xy = reduce_path(xyB);
+            end
+            corr_i=1;
+            j=1;
+        end
         goal = xy(j,:);
         j = j+1;
         display("Planeo ruta")
@@ -188,16 +213,16 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         if plan_path == true  
             plan_path = false;          
             speed_cmd = generate_rotate_and_translation_cmd(LINEAR_SPEED,ANGULAR_SPEED,estimacion_estado,goal,SAMPLE_TIME);
-            if goal(1,1) == xyA(end,1) && goal(1,2) == xyA(end,2) 
+            if goal(1,1) == xyA(end,1) && goal(1,2) == xyA(end,2)
+                A_visited = true;
                 speed_cmd = [speed_cmd;zeros(3/SAMPLE_TIME,2)];
-                disp 'Voy a esperar 3 segundos'
-                xyB = A_star(MAP_IMG,xyA(end,:),puntoB); %Creo trayectoria desde el punto A al punto B
-                xyB = reduce_path(xyB);
-                xy = [xy;xyB];
+                disp 'Voy a esperar 3 segundos cuando llegue al A'
+                xyB = A_star(MAP_IMG,particle_filter.State(1:2),puntoB); %Creo trayectoria desde el punto A al punto B
+                xy = reduce_path(xyB);
+                j=1;
             end
             if goal(1,1) == xyB(end,1) && goal(1,2) == xyB(end,2)
-                disp 'Llegue al final'
-                break; %Esto está rari
+                B_visited = true;
             end
             vxRef = [vxRef;speed_cmd(:,1)];
             wRef = [wRef;speed_cmd(:,2)];
@@ -206,6 +231,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
          if mod(time_step,PREDICTION_INTERVAL)==0
             particle_filter.correct(ranges,MAP,MAX_RANGE,"mse");
+            corr_i = corr_i+1;
             particle_filter.Particles = generate_outliers(particle_filter,OUTLIERS_PCT,MAP,X_LIMS,Y_LIMS);
          end
     end
