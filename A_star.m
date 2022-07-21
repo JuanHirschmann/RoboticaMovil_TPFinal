@@ -1,7 +1,7 @@
 function xy = A_star(MAP_IMG,INIT_POS,GOAL)
 
 MAP = robotics.OccupancyGrid(MAP_IMG, 25);
-MAP.inflate(0.01);
+MAP.inflate(0.07);
 
 map_gridsize = MAP.GridSize;
 h = map_gridsize(1);
