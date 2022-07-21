@@ -3,9 +3,10 @@
 % Funciona con MATLAB R2018a
 close all
 clear all
+clc 
 
 SIMULATE_LIDAR_NOISE = false; %simula datos no validos del lidar real, probar si se la banca
-USE_ROOMBA=false;  % false para desarrollar usando el simulador, true para conectarse al robot real
+USE_ROOMBA = false;  % false para desarrollar usando el simulador, true para conectarse al robot real
 
 %% Roomba
 if USE_ROOMBA   % si se usa el robot real, se inicializa la conexion    
@@ -33,6 +34,7 @@ diff_drive_obj = DifferentialDrive(WHEEL_RADIUS,L); % creacion del Simulador de 
 %% Creacion del entorno
 MAP_IMG = 1-double(imread('mapa_2022_1c.tiff'))/255;
 MAP = robotics.OccupancyGrid(MAP_IMG, 25);
+
 %% Crear sensor lidar en simulador
 lidar = LidarSensor;
 lidar.sensorOffset = [0,0];   % Posicion del sensor en el robot (asumiendo mundo 2D)
@@ -40,7 +42,7 @@ DOWNSAMPLE_FACTOR = 5;                %decimar lecturas de lidar acelera el algo
 NUM_SCANS = 513/DOWNSAMPLE_FACTOR;
 LIDAR_ANGLE_START = deg2rad(-90);
 LIDAR_ANGLE_END = deg2rad(90);
-MAX_RANGE=10;
+MAX_RANGE = 10;
 lidar.scanAngles = linspace(LIDAR_ANGLE_START,LIDAR_ANGLE_END,NUM_SCANS);
 lidar.maxRange = MAX_RANGE;
 
@@ -51,6 +53,7 @@ visualizer.hasWaypoints=true;
 visualizer.mapName = 'MAP';
 attachLidarSensor(visualizer,lidar);
 release(visualizer);
+
 %% Parametros de la Simulacion
 
 SIMULATION_DURATION = 3*60;          % Duracion total [s]
@@ -59,11 +62,11 @@ INIT_POS = random_empty_point(MAP,[5,1],[5,1]);%[2.5; 1.5; -pi/2];         % Pos
 WAYPOINTS=[1.5,1.3;4.3,2.1;];
 % Inicializar vectores de tiempo, entrada y pose
 time_vec = 0:SAMPLE_TIME:SIMULATION_DURATION;         % Vector de Tiempo para duracion total
-LOCATION_TIME=20; %20 segundos para ubicarse
-LOCATION_ITERATION=int32(20/SAMPLE_TIME); %Iteraciones hasta ubicarse
+LOCATION_TIME = 20; %20 segundos para ubicarse
+LOCATION_ITERATION = int32(20/SAMPLE_TIME); %Iteraciones hasta ubicarse
 %% generar comandos a modo de ejemplo
-ANGULAR_SPEED=0.3;
-LINEAR_SPEED=0.1;
+ANGULAR_SPEED = 0.3;
+LINEAR_SPEED = 0.1;
 vxRef = zeros(LOCATION_ITERATION,1);   % Velocidad lineal a ser comandada
 wRef = ANGULAR_SPEED*ones(LOCATION_ITERATION,1);       % Velocidad angular a ser comandada
 %wRef(time_vec < 5) = -0.2;
@@ -78,20 +81,20 @@ robot_sample_rate = robotics.Rate(1/SAMPLE_TIME); %Para Matlab R2018b e inferior
 
 %Inicializo filtro de partículas
 
-PARTICLES_NUM=1000; %Mas alla de 2000 se pone espeso
-POSITION_LIMITS=[5,1;4,1;pi,-pi];
-X_LIMS=[5,1];
-Y_LIMS=[5,0];
-PARTICLE_FILTER_RESAMPLING_INTERVAL=1;  %Remuestrea cada 2 actualizaciones de odometría
-PREDICTION_INTERVAL=25;
-OUTLIERS_PCT=0.05;
-particle_filter=robotics.ParticleFilter; %Creo objeto filtro de partículas
-particle_filter.StateEstimationMethod='mean'; %Tomo el promedio de las partículas como mi estado mas probable
-particle_filter.StateTransitionFcn=@movement_model; %Función para actualizar la odometría
-particle_filter.MeasurementLikelihoodFcn=@measurement_model; %Función del modelo de medición
-particle_filter.ResamplingMethod='systematic'; % Remuestreo por SUS
-particle_filter.ResamplingPolicy.TriggerMethod='interval'; %Por cantidad de particulas efectivas
-particle_filter.ResamplingPolicy.SamplingInterval=PARTICLE_FILTER_RESAMPLING_INTERVAL;
+PARTICLES_NUM = 1000; %Mas alla de 2000 se pone espeso
+POSITION_LIMITS = [5,1;4,1;pi,-pi];
+X_LIMS = [5,1];
+Y_LIMS = [5,0];
+PARTICLE_FILTER_RESAMPLING_INTERVAL = 1;  %Remuestrea cada 2 actualizaciones de odometría
+PREDICTION_INTERVAL = 25;
+OUTLIERS_PCT = 0.05;
+particle_filter = robotics.ParticleFilter; %Creo objeto filtro de partículas
+particle_filter.StateEstimationMethod = 'mean'; %Tomo el promedio de las partículas como mi estado mas probable
+particle_filter.StateTransitionFcn = @movement_model; %Función para actualizar la odometría
+particle_filter.MeasurementLikelihoodFcn = @measurement_model; %Función del modelo de medición
+particle_filter.ResamplingMethod = 'systematic'; % Remuestreo por SUS
+particle_filter.ResamplingPolicy.TriggerMethod = 'interval'; %Por cantidad de particulas efectivas
+particle_filter.ResamplingPolicy.SamplingInterval = PARTICLE_FILTER_RESAMPLING_INTERVAL;
 initialize(particle_filter,PARTICLES_NUM,POSITION_LIMITS)
 
 %particle_filter.predict(velocidad_linear,velocidad_angular,delta_t)
@@ -100,6 +103,7 @@ initialize(particle_filter,PARTICLES_NUM,POSITION_LIMITS)
 xyA = A_star(MAP_IMG,INIT_POS,WAYPOINTS(1,:)); % [INIT_POS(1),INIT_POS(2);...;WAYPOINTS(1,1),WAYPOINTS(1,2)]
 xyB = A_star(MAP_IMG,WAYPOINTS(1,:),WAYPOINTS(2,:));
 
+%%
 for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
 
     % Generar aqui criteriosamente velocidades lineales v_cmd y angulares w_cmd
@@ -156,34 +160,34 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         if SIMULATE_LIDAR_NOISE
             % Simular ruido de un lidar ruidoso (probar a ver si se la banca)
             chance_de_medicion_no_valida = 0.17;
-            not_valid=rand(length(ranges),1);
-            ranges(not_valid<=chance_de_medicion_no_valida)=NaN;
+            not_valid = rand(length(ranges),1);
+            ranges(not_valid <= chance_de_medicion_no_valida) = NaN;
         end
     end
     
-    if time_step<LOCATION_ITERATION %Busco la posición incial
+    if time_step < LOCATION_ITERATION %Busco la posición incial
         particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
-        if mod(time_step,PREDICTION_INTERVAL)==0
+        if mod(time_step,PREDICTION_INTERVAL) == 0
             particle_filter.correct(ranges,MAP,MAX_RANGE,"mse");
-            particle_filter.Particles=generate_outliers(particle_filter,OUTLIERS_PCT,MAP,X_LIMS,Y_LIMS);
+            particle_filter.Particles = generate_outliers(particle_filter,OUTLIERS_PCT,MAP,X_LIMS,Y_LIMS);
         end
-    elseif length(wRef)==time_step-1 %Tengo que planear la ruta
-        plan_path=true;
-        goal=WAYPOINTS(1,:); %Objetivo en metros
+    elseif length(wRef) == time_step-1 %Tengo que planear la ruta
+        plan_path = true;
+        goal = WAYPOINTS(1,:); %Objetivo en metros
         display("Planeo ruta")
-        estimacion_estado=particle_filter.State;
-        if plan_path==true
-            
-            speed_cmd=generate_rotate_and_translation_cmd(LINEAR_SPEED,ANGULAR_SPEED,estimacion_estado,goal,SAMPLE_TIME);
-            plan_path=false;
-            vxRef=[vxRef;speed_cmd(:,1)];
-            wRef=[wRef;speed_cmd(:,2)];
+        estimacion_estado = particle_filter.State;
+        
+        if plan_path == true  
+            speed_cmd = generate_rotate_and_translation_cmd(LINEAR_SPEED,ANGULAR_SPEED,estimacion_estado,goal,SAMPLE_TIME);
+            plan_path = false;
+            vxRef = [vxRef;speed_cmd(:,1)];
+            wRef = [wRef;speed_cmd(:,2)];
         end
     else
         particle_filter.predict(v_cmd,w_cmd,SAMPLE_TIME);
          if mod(time_step,PREDICTION_INTERVAL)==0
             particle_filter.correct(ranges,MAP,MAX_RANGE,"mse");
-            particle_filter.Particles=generate_outliers(particle_filter,OUTLIERS_PCT,MAP,X_LIMS,Y_LIMS);
+            particle_filter.Particles = generate_outliers(particle_filter,OUTLIERS_PCT,MAP,X_LIMS,Y_LIMS);
          end
     end
 
