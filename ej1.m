@@ -115,8 +115,8 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
                                         % y si se quedo sin comandos va a
                                         % execute path.
         if length(w_ref) >time_step
-            v_cmd = v_ref(time_step-1);   
-            w_cmd = w_ref(time_step-1);
+            v_cmd = v_ref(time_step);   
+            w_cmd = w_ref(time_step);
             particle_filter.predict(v_cmd,w_cmd,const.sample_time);
                 if mod(time_step,const.correction_interval) == 0
                     particle_filter.correct(ranges,map,const.lidar_max_range,"mse");

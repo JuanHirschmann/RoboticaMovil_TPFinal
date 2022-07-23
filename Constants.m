@@ -12,8 +12,8 @@
          lidar_max_range=10;                %Rango máximo del LiDAR [mts]
         
         %Constantes de movimiento 
-         angular_speed=0.25;                %Velocidad angular [rad/s]
-         linear_speed=0.075;                  %Velocidad linear [mts/s]
+         angular_speed=0.05;                %Velocidad angular [rad/s]
+         linear_speed=0.1;                  %Velocidad linear [mts/s]
          
         %Constantes de tiempos
          location_end_time=20;                           %Tiempo para finalizar la localización [s]
