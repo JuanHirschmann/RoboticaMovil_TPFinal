@@ -6,12 +6,12 @@ function predictParticles=movement_model(particle_filter,prev_particles,varargin
     %variables las velocodiades y el delta de tiempo.
     %movement_model(pf,prevParticles,velocidad_lineal,velocidad_angular,delta_tiempo)
     
-    ALPHA_1=0.05;
+    ALPHA_1=0.5;
     ALPHA_2=0.1;
     ALPHA_3=0.1;
     ALPHA_4=0.25;
-    ALPHA_5=1;
-    ALPHA_6=1;
+    ALPHA_5=0.2;
+    ALPHA_6=0.2;
     v=varargin{1};
     w=varargin{2};
     time_step=varargin{3};

@@ -1,6 +1,6 @@
 function new_particles=generate_outliers(particle_filter,pct_outliers,map,x_lim,y_lim)
 %Genera puntos aleatorios en las particulas para no reducir la diversidad
-%en el remuestreeo
+%en el remuestreo
    total_outliers=int32(particle_filter.NumParticles*pct_outliers);
    outlier_index=randperm(particle_filter.NumParticles,total_outliers);
    new_particles=particle_filter.Particles;

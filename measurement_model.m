@@ -6,7 +6,7 @@
 function likelihood = measurement_model(particle_filter,predicted_particles,measurement,varargin)
     SIGMA_MODEL = 0.1;%0.5;
     ANGLE_LENGTH = 10; %Me quedo con sólo estos angulos
-    DOWNSCALE_FACTOR = ceil(length(measurement)/ANGLE_LENGTH);
+    DOWNSample_FACTOR = ceil(length(measurement)/ANGLE_LENGTH);
     map = varargin{1};
     max_range = varargin{2};
     
@@ -15,7 +15,7 @@ function likelihood = measurement_model(particle_filter,predicted_particles,meas
     
     angles = linspace(-pi/2,pi/2,ANGLE_LENGTH); %Esto esta hardcodeado
     
-    measurement = downsample(measurement,DOWNSCALE_FACTOR); %Sub muestreo las mediciones
+    measurement = downsample(measurement,DOWNSample_FACTOR); %Sub muestreo las mediciones
     likelihood = ones(particle_filter.NumParticles,1);
     measurement(isnan(measurement))=max_range;
     x_lims = map.XWorldLimits;
