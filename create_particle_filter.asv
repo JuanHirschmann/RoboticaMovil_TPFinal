@@ -9,6 +9,6 @@ function particle_filter=create_particle_filter()
     particle_filter.MeasurementLikelihoodFcn = @measurement_model; %Función del modelo de medición
     particle_filter.ResamplingMethod = 'systematic'; % Remuestreo por SUS
     particle_filter.ResamplingPolicy.TriggerMethod = 'interval'; %Por cantidad de particulas efectivas
-    particle_filter.ResamplingPolicy.SamplingInterval = const.particle_filter_resampling_interval
+    particle_filter.ResamplingPolicy.SamplingInterval = const.particle_filter_resampling_interval;
     
 end

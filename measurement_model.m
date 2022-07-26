@@ -5,7 +5,7 @@
 %¿Como tratar a los NaN?
 function likelihood = measurement_model(particle_filter,predicted_particles,measurement,varargin)
     SIGMA_MODEL = 0.1;%0.5;
-    ANGLE_LENGTH = 10; %Me quedo con sólo estos angulos
+    ANGLE_LENGTH = 15; %Me quedo con sólo estos angulos
     DOWNSample_FACTOR = ceil(length(measurement)/ANGLE_LENGTH);
     map = varargin{1};
     max_range = varargin{2};

@@ -39,7 +39,7 @@ release(visualizer);
 
 %% Parametros de la Simulacion
 SIMULATION_DURATION = 3*60;          % Duracion total [s]
-INIT_POS =random_empty_point(map,[5,1],[5,1]);%[2.5; 1.5; -pi/2];         % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
+INIT_POS =random_empty_point(map);%[2.5; 1.5; -pi/2];         % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
 GOAL_A = [1.5,1.3];
 GOAL_B = [4.3,2.1];
 WAYPOINTS=[GOAL_A;GOAL_B];
@@ -53,7 +53,7 @@ pose(:,1) = INIT_POS;
 %% Simulacion
 robot_sample_rate = robotics.Rate(1/const.sample_time); %Para Matlab R2018b e inferiores
 
-%Inicializo filtro de partícula
+%Inicializo filtro de partículas
 x_lims=map.XWorldLimits;
 y_lims=map.YWorldLimits;
 POSITION_LIMITS = [x_lims(2),x_lims(1);y_lims(2),x_lims(1);pi,-pi];
@@ -63,9 +63,9 @@ Y_LIMS = y_lims;%[5,0];
 
 particle_filter=create_particle_filter();
 initialize(particle_filter,const.particle_number,POSITION_LIMITS)
-
+particle_filter.Particles=initialize_particles(particle_filter,map);
 path_to_B = [4.5,5.5]; %Inicializo en un punto que no puede estar nunca para que no falle cuando hago una comparación. Después este valor se tira
-correction_counter = 1;
+
 A_visited = false;
 B_visited = false;
 localized = false;
@@ -82,14 +82,16 @@ w_cmd=0;
 correction_counter=1;
 for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     
-    state
-    if state=="Locate"              %Primer estado al que entra, las velocidades ya están cargadas en V_ref
-            
+    
+        if state=="Locate"              %Primer estado al que entra, las velocidades ya están cargadas en V_ref
+            state
             state="Execute command";
         
     elseif state=="Plan path"       % Entra aca si pasaron n correcciones o si ya llego a A y tiene que calcular B
+        state
         correction_counter=1;       % Avanza a Execute path despues de calcular la trayectoria
         state="Execute path";
+        
         if A_visited==false
             path_to_A = A_star(MAP_IMG,robot_pos,GOAL_A);
             path = reduce_path(path_to_A);
@@ -99,6 +101,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
             path = reduce_path(path_to_B);
         end
     elseif state=="Execute path"        %Ejecuta los caminos planeados en Plan path
+        state
         if path_counter<length(path)    %Si terminó de realizar el camino vuelve a plan path, si va a execute command 
             desired_location=path(path_counter,:);
             speed_cmd = generate_rotate_and_translation_cmd(const.angular_speed,const.angular_speed,robot_pos,desired_location,const.sample_time);
@@ -120,39 +123,46 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
             particle_filter.predict(v_cmd,w_cmd,const.sample_time);
                 if mod(time_step,const.correction_interval) == 0
                     particle_filter.correct(ranges,map,const.lidar_max_range,"mse");
-                    particle_filter.Particles = generate_outliers(particle_filter,const.outliers_pct,map,X_LIMS,Y_LIMS);
+                    particle_filter.Particles = generate_outliers(particle_filter,const.outliers_pct,map);
                     correction_counter=correction_counter+1;
                 end
             robot_pos=particle_filter.State;
-            if norm(robot_pos(1:2)-GOAL_B)<0.5
+            if norm(robot_pos(1:2)-GOAL_B)<0.2&&A_visited
                 B_visited = true;
                 state="Exit";
-            elseif norm(robot_pos(1:2)-GOAL_A)<0.5 &&~A_visited
+            elseif norm(robot_pos(1:2)-GOAL_A)<0.2 &&~A_visited
                 A_visited=true;
                 state="Delay";
             end
         elseif mod(correction_counter,5)==0 %Recalculo el path
             state="Plan path";
-            path_counter=1;
+            display("Recalcule");
+            %path_counter=1;
         else
             state="Execute path";
         end
     
     elseif state=="Delay"
+        state
         speed_cmd = zeros(3/const.sample_time,2);
         v_ref = [v_ref;speed_cmd(1)];
         w_ref =[v_ref;speed_cmd(2)];
         state="Execute command";
     elseif state=="Exit"
+        state
         break
     end
-    
-    %% a partir de aca el robot real o el simulador ejecutan v_cmd y w_cmd:
     if USE_ROOMBA       % para usar con el robot real
         
         % Enviar comando de velocidad
-        cmdMsg.Linear.X = v_cmd;
-        cmdMsg.Angular.Z = w_cmd;
+        %if state=="Execute command"
+            cmdMsg.Linear.X = v_cmd;
+            cmdMsg.Angular.Z = w_cmd;
+        %else
+            
+        %    cmdMsg.Linear.X = 0;
+        %    cmdMsg.Angular.Z = 0;
+        %end
         send(cmdPub,cmdMsg);
         
         % Recibir datos de lidar y odometrÃ­a
@@ -179,7 +189,13 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         vel_robot = [v;0;w]; % velocidades en la terna del robot [vx;vy;w]
         vel_world = bodyToWorld(vel_robot,pose(:,time_step-1));  % Conversion de la terna del robot a la global
         % Realizar un paso de integracion
-        pose(:,time_step) = pose(:,time_step-1) + vel_world*const.sample_time; 
+        if state=="Execute command"
+            pose(:,time_step) = pose(:,time_step-1) + vel_world*const.sample_time;
+        else
+            
+            pose(:,time_step) = pose(:,time_step-1);
+        end
+        %pose(:,time_step) = pose(:,time_step-1) + vel_world*const.sample_time; 
         % Tomar nueva medicion del lidar
         ranges = lidar(pose(:,time_step));
         if SIMULATE_LIDAR_NOISE
@@ -189,6 +205,13 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
             ranges(not_valid <= chance_de_medicion_no_valida) = NaN;
         end
     end
+    
+    
+    %Ejecuta los comandos de velocidad mientras haya comandos
+    %Si llega a B sale va a exit, si realizó n correcciones va a plan path
+    % y si se quedo sin comandos va a
+                                    % execute path.
+    
     
     
     %elseif length(w_ref) == time_step-1 %Tengo que mandar comandos 
@@ -241,35 +264,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     %     end
     %end
 
-   
-    
-    %%
-    % Aca el robot ya ejecutÃ³ las velocidades comandadas y devuelve en la
-    % variable ranges la medicion del lidar para ser usada y
-    % en la variable pose(:,time_step) la odometrÃ­a actual.
-    
-    %% COMPLETAR ACA:
-        % hacer algo con la medicion del lidar (ranges) y con el estado
-        % actual de la odometria ( pose(:,time_step) )
-        
-        % Giro 360 e ir midiendo girando de a K° medimos y hacemos filtro de partículas.
-            %Posicion inicial
-            %Giramos 
-            %Medimos
-            %filtro de partículas
-            %...
-        % Tiramos A* para saber el camino (Ver de convolucionar mapa)
-            % A* nos da X posiciones de las que necesitamos sólo N. 
-            % Necesitamos N movimientos
-            % Actualizamos filtro de partículas y A* cada N movimientos
-            % (No medir si no actualizamos el filtro de particulas y actualizar con los N movimientos perdidos)
-        % Llegamos y descansamos 3 segundos. 
-        % Volver al inicio
-        % Fin del COMPLETAR ACA
-        
-    %%
-    % actualizar visualizacion
     markings=[WAYPOINTS;particle_filter.State(1:2)];
     visualizer(pose(:,time_step),markings,ranges)
     waitfor(robot_sample_rate);
-end
+    end

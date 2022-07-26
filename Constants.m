@@ -6,29 +6,30 @@
          lidar_offset=[0,0];                %Offset del LiDAR [mts]
          sample_time=0.1;                   %Período de muestreo del robot [s]
         % Constantes del LiDAR 
-         lidar_downsample_factor=5;         %Factor de submuestreo de los angulos del LiDAR
+         lidar_downsample_factor=3;         %Factor de submuestreo de los angulos del LiDAR
          lidar_angle_start=deg2rad(-90);    %Angulo donde inicia el barrido[rad]
          lidar_angle_end=deg2rad(90);      %Angulo donde finaliza el barrido[rad]
-         lidar_max_range=10;                %Rango máximo del LiDAR [mts]
+         lidar_max_range=8;                %Rango máximo del LiDAR [mts]
         
         %Constantes de movimiento 
-         angular_speed=0.05;                %Velocidad angular [rad/s]
+         angular_speed=0.25;                %Velocidad angular [rad/s]
          linear_speed=0.1;                  %Velocidad linear [mts/s]
-         
+         delay_time=3;
+         path_update_interval=10;           %Cantidad de pasos de correccion hasta actualizar A*
         %Constantes de tiempos
-         location_end_time=20;                           %Tiempo para finalizar la localización [s]
+         location_end_time=10;                           %Tiempo para finalizar la localización [s]
          %location_end_iteration=int32(20/sample_time);   %Iteración donde finalizó la localización [iteraciones]
          
         %Filtro de partículas
-         particle_number=1000;                   % Cantidad de particulas [particulas]
+         particle_number=500;                   % Cantidad de particulas [particulas]
          particle_filter_resampling_interval=1;  % Pasos de correccion a realizar antes de remuestrear
          correction_interval=25;                 % Cantidad de pasos de predicción (movimientos) hasta realizar una correccion
-         outliers_pct=0.05;                     % Porcentaje de partículas que se generan aletoriamente
+         outliers_pct=0.1;                     % Porcentaje de partículas que se generan aletoriamente
          
-        %Modelo de medicion
+        %Modelo de medicion (No implementado)
          gaussian_model_sigma=0.1;               %Desvío estándar del modelo gaussiano
          number_of_samples=10;                   %Cantidad de angúlos a analizar
-        %Modelo de movimiento
+        %Modelo de movimiento (No implementado)
                                   %Parámetros del modelo de movimiento
          alpha_1=0.05;
          alpha_2=0.1;
@@ -38,9 +39,9 @@
          alpha_6=1;
          minimum_angular_speed=0.000001;        %Mínima velocidad angular posible
          
-        %Heurística 
+        %Heurística (No implementado)
          weight=7.5;
-        %edge_cost
+        %edge_cost (No implementado)
          threshold=0.1;
         
     end
