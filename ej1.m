@@ -83,9 +83,9 @@ correction_counter=1;
 for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     
     
-        if state=="Locate"              %Primer estado al que entra, las velocidades ya están cargadas en V_ref
-            state
-            state="Execute command";
+    if state=="Locate"              %Primer estado al que entra, las velocidades ya están cargadas en V_ref
+        state
+        state="Execute command";
         
     elseif state=="Plan path"       % Entra aca si pasaron n correcciones o si ya llego a A y tiene que calcular B
         state

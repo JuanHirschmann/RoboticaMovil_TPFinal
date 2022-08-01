@@ -15,7 +15,7 @@
          angular_speed=0.25;                %Velocidad angular [rad/s]
          linear_speed=0.1;                  %Velocidad linear [mts/s]
          delay_time=3;
-         path_update_interval=10;           %Cantidad de pasos de correccion hasta actualizar A*
+         path_update_interval=7;           %Cantidad de pasos de correccion hasta actualizar A*
         %Constantes de tiempos
          location_end_time=10;                           %Tiempo para finalizar la localización [s]
          %location_end_iteration=int32(20/sample_time);   %Iteración donde finalizó la localización [iteraciones]

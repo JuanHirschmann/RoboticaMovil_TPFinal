@@ -122,13 +122,10 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     
     process_measurement(slam_obj,ranges);
     [scans_slam,poses] = scansAndPoses(slam_obj);
-    occ_grid = buildMap(scans_slam,poses,MAP_RES,const.lidar_max_range);
-    
-    if mod(time_step,10)==0
-        figure
-        show(occ_grid);
-    end
-        %visualizer(pose(:,time_step),markings,ranges)
+    occGrid = buildMap(scans_slam,poses,MAP_RES,const.lidar_max_range);
+    figure
+    show(occGrid);
+    %visualizer(pose(:,time_step),markings,ranges)
     waitfor(robot_sample_rate);
     %show(slam_obj)
 end
