@@ -17,7 +17,8 @@ function likelihood = measurement_model(particle_filter,predicted_particles,meas
     
     measurement = downsample(measurement,DOWNSample_FACTOR); %Sub muestreo las mediciones
     likelihood = ones(particle_filter.NumParticles,1);
-    measurement(isnan(measurement))=max_range;
+    meas_index=(1:length(measurement))';
+    measurement=fillmissing(measurement,'linear'); %Trato nan interpolando
     x_lims = map.XWorldLimits;
     y_lims = map.YWorldLimits;
     for row = 1:particle_filter.NumParticles

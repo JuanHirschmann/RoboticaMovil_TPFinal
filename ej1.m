@@ -5,7 +5,7 @@ close all
 clear all
 clc 
 
-SIMULATE_LIDAR_NOISE = false; %simula datos no validos del lidar real, probar si se la banca
+SIMULATE_LIDAR_NOISE = true; %simula datos no validos del lidar real, probar si se la banca
 USE_ROOMBA = false;  % false para desarrollar usando el simulador, true para conectarse al robot real
 
 %% Roomba
@@ -102,7 +102,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         end
     elseif state=="Execute path"        %Ejecuta los caminos planeados en Plan path
         state
-        if path_counter<length(path)    %Si terminó de realizar el camino vuelve a plan path, si va a execute command 
+        if path_counter<=length(path)    %Si terminó de realizar el camino vuelve a plan path, si va a execute command 
             desired_location=path(path_counter,:);
             speed_cmd = generate_rotate_and_translation_cmd(const.angular_speed,const.angular_speed,robot_pos,desired_location,const.sample_time);
             v_ref = [v_ref;speed_cmd(:,1)];

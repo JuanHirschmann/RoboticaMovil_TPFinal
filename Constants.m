@@ -28,7 +28,7 @@
          
         %Modelo de medicion (No implementado)
          gaussian_model_sigma=0.1;               %Desvío estándar del modelo gaussiano
-         number_of_samples=10;                   %Cantidad de angúlos a analizar
+         number_of_samples=15;                   %Cantidad de angúlos a analizar
         %Modelo de movimiento (No implementado)
                                   %Parámetros del modelo de movimiento
          alpha_1=0.05;
