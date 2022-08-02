@@ -1,5 +1,7 @@
  classdef Constants
     properties( Constant = true )
+        obstacle_threshold=0.8;
+        distance_safety_factor=0.5;
         % Constantes del robot
          wheel_radius = 0.072/3;            %Radio de las ruedas [mts]
          wheel_separation = 0.235;          %Distancia entre ruedas [mts] 
@@ -9,7 +11,7 @@
          lidar_downsample_factor=3;         %Factor de submuestreo de los angulos del LiDAR
          lidar_angle_start=deg2rad(-90);    %Angulo donde inicia el barrido[rad]
          lidar_angle_end=deg2rad(90);      %Angulo donde finaliza el barrido[rad]
-         lidar_max_range=8;                %Rango máximo del LiDAR [mts]
+         lidar_max_range=5;                %Rango máximo del LiDAR [mts]
         
         %Constantes de movimiento 
          angular_speed=0.25;                %Velocidad angular [rad/s]

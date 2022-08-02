@@ -18,6 +18,9 @@ end
 const=Constants;
 % creacion del Simulador de robot diferencial
 diff_drive_obj = DifferentialDrive(const.wheel_separation,const.wheel_separation); 
+%% Parametros de la Simulacion
+SIMULATION_DURATION = 3*60;          % Duracion total [s]
+INIT_POS =[2.5; 1.5; -pi/2]; %random_empty_point(map);%        % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
 
 %% Creacion del entorno
 MAP_IMG = 1-double(imread('mapa_2022_1c.tiff'))/255;
@@ -37,13 +40,10 @@ visualizer.mapName = 'map';
 attachLidarSensor(visualizer,lidar);
 release(visualizer);
 
-%% Parametros de la Simulacion
-SIMULATION_DURATION = 3*60;          % Duracion total [s]
-INIT_POS =random_empty_point(map);%[2.5; 1.5; -pi/2];         % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
 
 % Inicializar vectores de tiempo, entrada y pose
 time_vec = 0:const.sample_time:SIMULATION_DURATION;     % Vector de Tiempo para duracion total
-LOCATION_END = int32(20/const.sample_time);             %Iteraciones hasta ubicarse
+LOCATION_END = int32(2/const.sample_time);             %Iteraciones hasta ubicarse
 pose = zeros(3,numel(time_vec));                        % Inicializar matriz de pose
 pose(:,1) = INIT_POS;
 
@@ -54,26 +54,32 @@ robot_sample_rate = robotics.Rate(1/const.sample_time); %Para Matlab R2018b e in
 x_lims=map.XWorldLimits;
 y_lims=map.YWorldLimits;
 POSITION_LIMITS = [x_lims(2),x_lims(1);y_lims(2),x_lims(1);pi,-pi];
-X_LIMS = x_lims;
-Y_LIMS = y_lims;
 
-
+visualizer = Visualizer2D();
+visualizer.hasWaypoints=false;
+visualizer.mapName = 'map';
+attachLidarSensor(visualizer,lidar);
+release(visualizer);
 %%
 %Genero comandos para localizarse
        % Velocidad angular a ser comandada
 
-v_ref = zeros(LOCATION_END,1);
-w_ref = const.angular_speed*ones(LOCATION_END,1);
+v_ref = zeros(1);
+w_ref = zeros(1);
 
-MAP_RES=25;             %Resolución del mapa [celdas/metro]  
+MAP_RES=15;             %Resolución del mapa [celdas/metro]  
 slam_obj=robotics.LidarSLAM(MAP_RES,const.lidar_max_range);
-slam_obj.LoopClosureThreshold = 360;
+slam_obj.LoopClosureThreshold = 300;
 slam_obj.LoopClosureSearchRadius = 8;
+slam_obj.MovementThreshold=[0.5,0.5];
+state="check path";
+est_map=[];
+est_pose=[];
 for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     
    %if length(w_ref) >time_step
-            v_cmd = v_ref(time_step);   
-            w_cmd = w_ref(time_step);
+    v_cmd = v_ref(time_step-1);   
+    w_cmd = w_ref(time_step-1);
     
     %% a partir de aca el robot real o el simulador ejecutan v_cmd y w_cmd:
     if USE_ROOMBA       % para usar con el robot real
@@ -117,18 +123,56 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
             ranges(not_valid <= chance_de_medicion_no_valida) = NaN;
         end
     end
-    
-    %markings=[WAYPOINTS;particle_filter.State(1:2)];
-    
-    process_measurement(slam_obj,ranges);
-    [scans_slam,poses] = scansAndPoses(slam_obj);
-    occ_grid = buildMap(scans_slam,poses,MAP_RES,const.lidar_max_range);
-    
-    if mod(time_step,10)==0
-        figure
-        show(occ_grid);
+    ranges(ranges<0.2)=NaN;
+        %visualizer.mapName = 'est_map';
+    min_distance=distance_to_obstacle(ranges);
+    if length(w_ref)<=time_step-1
+        if min_distance>const.obstacle_threshold
+            state="move foward";
+        else
+            state="rotate";
+
+        end
     end
-        %visualizer(pose(:,time_step),markings,ranges)
-    waitfor(robot_sample_rate);
-    %show(slam_obj)
+    if state=="move foward"
+       state
+       distance=const.distance_safety_factor*min_distance;
+       speed_cmd=move_foward_command(distance);
+       v_ref = [v_ref;speed_cmd(:,1)];
+       w_ref = [w_ref;speed_cmd(:,2)];
+       state="execute command";
+    elseif state=="rotate" 
+       state
+       quarter_point=int32(length(ranges)/4);
+       [max_val,max_index]=max(ranges(1:quarter_point));
+       target_angle=const.lidar_angle_start+(const.lidar_angle_end-const.lidar_angle_start)*max_index/length(ranges);
+       rotation_angle=angdiff(target_angle,est_pose(end,3));
+       speed_cmd=rotate_command(rotation_angle);
+       v_ref = [v_ref;speed_cmd(:,1)];
+       w_ref = [w_ref;speed_cmd(:,2)];
+       state="execute command";
+    elseif state=="execute command"
+    end
+    
+    figure(1)
+    if time_step==2 ||mod(time_step,10)==0
+        %Ver de poner en una función sola
+        
+        ranges=process_measurement(slam_obj,ranges);
+        [scans_slam,est_pose] = scansAndPoses(slam_obj);
+        est_map = buildMap(scans_slam,est_pose,MAP_RES,const.lidar_max_range);
+        
+        show(est_map);
+        hold on;
+        scatter(est_pose(end,1),est_pose(end,2),'filled','LineWidth',2);
+        plot(est_pose(:,1),est_pose(:,2),'LineWidth',2);
+        quiver(est_pose(end,1),est_pose(end,2),cos(est_pose(end,3)),sin(est_pose(end,3)),0.5,'filled','LineWidth',2);
+        axis([-3 3 -2.5 2.5])
+        hold off;
+        
+    
+    else
+        visualizer(pose(:,time_step),ranges)
+    end
+        waitfor(robot_sample_rate);
 end
