@@ -56,7 +56,7 @@ y_lims=map.YWorldLimits;
 POSITION_LIMITS = [x_lims(2),x_lims(1);y_lims(2),x_lims(1);pi,-pi];
 
 visualizer = Visualizer2D();
-visualizer.hasWaypoints=false;
+visualizer.hasWaypoints=true;
 visualizer.mapName = 'map';
 attachLidarSensor(visualizer,lidar);
 release(visualizer);
@@ -67,14 +67,16 @@ release(visualizer);
 v_ref = zeros(1);
 w_ref = zeros(1);
 
-MAP_RES=15;             %Resolución del mapa [celdas/metro]  
+MAP_RES=25;             %Resolución del mapa [celdas/metro]  
 slam_obj=robotics.LidarSLAM(MAP_RES,const.lidar_max_range);
-slam_obj.LoopClosureThreshold = 300;
-slam_obj.LoopClosureSearchRadius = 8;
+slam_obj.LoopClosureThreshold = 400;
+slam_obj.LoopClosureSearchRadius = 4;
 slam_obj.MovementThreshold=[0.5,0.5];
 state="check path";
 est_map=[];
-est_pose=[];
+est_pose=[0,0,0];
+orientation_angle=0;
+normal=[0,0];
 for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     
    %if length(w_ref) >time_step
@@ -124,14 +126,22 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         end
     end
     ranges(ranges<0.2)=NaN;
-        %visualizer.mapName = 'est_map';
     min_distance=distance_to_obstacle(ranges);
+    
     if length(w_ref)<=time_step-1
-        if min_distance>const.obstacle_threshold
+        %% rot angle
+        %% orientation error
+        
+        path_blocked=true;
+        if min_distance>const.obstacle_threshold 
+            path_blocked=false;
+        end
+        [orientation_angle,normal]=calculate_orientation(ranges,path_blocked);
+        if ~path_blocked %&& orientation_error<const.orientation_error_threshold
             state="move foward";
         else
+            %orientation_angle=deg2rad(45);%abs(angdiff(est_pose(end,3),deg2rad(90)));
             state="rotate";
-
         end
     end
     if state=="move foward"
@@ -143,10 +153,10 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
        state="execute command";
     elseif state=="rotate" 
        state
-       quarter_point=int32(length(ranges)/4);
-       [max_val,max_index]=max(ranges(1:quarter_point));
-       target_angle=const.lidar_angle_start+(const.lidar_angle_end-const.lidar_angle_start)*max_index/length(ranges);
-       rotation_angle=angdiff(target_angle,est_pose(end,3));
+       %quarter_point=int32(length(ranges)/4);
+       %[max_val,max_index]=max(ranges(1:quarter_point));
+       %target_angle=const.lidar_angle_start+(const.lidar_angle_end-const.lidar_angle_start)*max_index/length(ranges);
+       rotation_angle=angdiff(orientation_angle,est_pose(end,3));
        speed_cmd=rotate_command(rotation_angle);
        v_ref = [v_ref;speed_cmd(:,1)];
        w_ref = [w_ref;speed_cmd(:,2)];
@@ -167,12 +177,18 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         scatter(est_pose(end,1),est_pose(end,2),'filled','LineWidth',2);
         plot(est_pose(:,1),est_pose(:,2),'LineWidth',2);
         quiver(est_pose(end,1),est_pose(end,2),cos(est_pose(end,3)),sin(est_pose(end,3)),0.5,'filled','LineWidth',2);
+        
+        %quiver(intercept*cos(est_pose(end,3)),intercept*cos(est_pose(end,3)),normal(1),normal(2),0.5,'filled','LineWidth',2);
+        
         axis([-3 3 -2.5 2.5])
         hold off;
         
     
     else
-        visualizer(pose(:,time_step),ranges)
+        intercept=ranges(int32(length(ranges)/2));
+        markings=[pose(1,time_step)+intercept*cos(pose(3,time_step))+normal(1),pose(2,time_step)+intercept*sin(pose(3,time_step))+normal(2)];
+        markings=[markings;pose(1,time_step)+intercept*cos(pose(3,time_step)),pose(2,time_step)+intercept*sin(pose(3,time_step))];
+        visualizer(pose(:,time_step),markings,ranges)
     end
         waitfor(robot_sample_rate);
 end

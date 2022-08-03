@@ -1,0 +1,16 @@
+function rotation_angle=calculate_rotation_angle(ranges,blocked_path)
+    const=Constants;
+    samples_angle=deg2rad(20);
+    first_sample_index=0;
+    first_sample_angle=const.lidar_angle_start;
+    lidar_angle_delta=(const.lidar_angle_end-const.lidar_angle_start)/length(ranges);
+    if blocked_path
+        first_sample_index=int32(length(ranges/2)-samples_angle/(2*lidar_angle_delta));
+        first_sample_angle=-samples_angle/2;
+    end
+    last_sample_index=first_sample_index+int32(samples_angle/(lidar_angle_delta));
+    last_sample_angle=first_sample_angle+samples_angle;
+    first_sample_vector=pol2cart(first_sample_angle,ranges(first_sample_index));
+    last_sample_vector=pol2cart(last_sample_angle,ranges(last_sample_index));
+    diff_vector=first_sample_vector-
+end
