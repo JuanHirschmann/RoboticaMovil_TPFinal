@@ -18,14 +18,14 @@ end
 const=Constants;
 % creacion del Simulador de robot diferencial
 diff_drive_obj = DifferentialDrive(const.wheel_separation,const.wheel_separation); 
-%% Parametros de la Simulacion
-SIMULATION_DURATION = 3*60;          % Duracion total [s]
-INIT_POS =[2.5; 1.5; -pi/2]; %random_empty_point(map);%        % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
+       % Pose inicial (x y theta) del robot simulado (el robot pude arrancar en cualquier lugar valido del mapa)
 
 %% Creacion del entorno
 MAP_IMG = 1-double(imread('mapa_2022_1c.tiff'))/255;
 map = robotics.OccupancyGrid(MAP_IMG, 25);
-
+%% Parametros de la Simulacion
+SIMULATION_DURATION = 3*60;          % Duracion total [s]
+INIT_POS =random_empty_point(map);% 
 %% Crear sensor lidar en simulador
 lidar = LidarSensor;
 lidar.sensorOffset = const.lidar_offset;   
@@ -33,12 +33,6 @@ NUM_SCANS = 513/const.lidar_downsample_factor;
 lidar.scanAngles = linspace(const.lidar_angle_start,const.lidar_angle_end,NUM_SCANS);
 lidar.maxRange = const.lidar_max_range;
 
-%% Crear visualizacion
-visualizer = Visualizer2D();
-visualizer.hasWaypoints=true;
-visualizer.mapName = 'map';
-attachLidarSensor(visualizer,lidar);
-release(visualizer);
 
 
 % Inicializar vectores de tiempo, entrada y pose
@@ -56,7 +50,7 @@ y_lims=map.YWorldLimits;
 POSITION_LIMITS = [x_lims(2),x_lims(1);y_lims(2),x_lims(1);pi,-pi];
 
 visualizer = Visualizer2D();
-visualizer.hasWaypoints=true;
+visualizer.hasWaypoints=false;
 visualizer.mapName = 'map';
 attachLidarSensor(visualizer,lidar);
 release(visualizer);
@@ -70,12 +64,12 @@ w_ref = zeros(1);
 MAP_RES=25;             %Resolución del mapa [celdas/metro]  
 slam_obj=robotics.LidarSLAM(MAP_RES,const.lidar_max_range);
 slam_obj.LoopClosureThreshold = 400;
-slam_obj.LoopClosureSearchRadius = 4;
-slam_obj.MovementThreshold=[0.5,0.5];
+slam_obj.LoopClosureSearchRadius = 2;
+slam_obj.MovementThreshold=[0.5,0.25];
 state="check path";
 est_map=[];
 est_pose=[0,0,0];
-orientation_angle=0;
+%orientation_angle=0;
 normal=[0,0];
 for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     
@@ -127,7 +121,15 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     end
     ranges(ranges<0.2)=NaN;
     min_distance=distance_to_obstacle(ranges);
-    
+    wall_orientation=wall_orientation_angle(ranges);
+    orientation_error=abs(angdiff(wall_orientation,orientation_angle));
+    if orientation_error>const.orientation_error_threshold
+        w_ref=w_ref(1:time_step);
+        v_ref=v_ref(1:time_step);
+        correct_orientation=true;
+        
+    end
+    %%Ver si me alejo de la pared
     if length(w_ref)<=time_step-1
         %% rot angle
         %% orientation error
@@ -136,11 +138,11 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         if min_distance>const.obstacle_threshold 
             path_blocked=false;
         end
-        [m,normal]=calculate_orientation(ranges,path_blocked);
-        if ~path_blocked %&& orientation_error<const.orientation_error_threshold
+        [orientation_angle]=calculate_orientation(ranges,path_blocked);
+        if ~path_blocked && ~correct_orientation
             state="move foward";
         else
-            orientation_angle=deg2rad(45);%abs(angdiff(est_pose(end,3),deg2rad(90)));
+            
             state="rotate";
         end
     end
@@ -153,11 +155,8 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
        state="execute command";
     elseif state=="rotate" 
        state
-       %quarter_point=int32(length(ranges)/4);
-       %[max_val,max_index]=max(ranges(1:quarter_point));
-       %target_angle=const.lidar_angle_start+(const.lidar_angle_end-const.lidar_angle_start)*max_index/length(ranges);
-       %rotation_angle=angdiff(orientation_angle,est_pose(end,3));
-       speed_cmd=rotate_command( orientation_angle);
+       rotation_angle=orientation_angle;%angdiff(orientation_angle,est_pose(end,3));
+       speed_cmd=rotate_command(rotation_angle);
        v_ref = [v_ref;speed_cmd(:,1)];
        w_ref = [w_ref;speed_cmd(:,2)];
        state="execute command";
@@ -177,17 +176,17 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         scatter(est_pose(end,1),est_pose(end,2),'filled','LineWidth',2);
         plot(est_pose(:,1),est_pose(:,2),'LineWidth',2);
         quiver(est_pose(end,1),est_pose(end,2),cos(est_pose(end,3)),sin(est_pose(end,3)),0.5,'filled','LineWidth',2);
-        
-        %quiver(intercept*cos(est_pose(end,3)),intercept*cos(est_pose(end,3)),normal(1),normal(2),0.5,'filled','LineWidth',2);
-        
         axis([-3 3 -2.5 2.5])
         hold off;
         
     
     else
         intercept=ranges(int32(length(ranges)/2));
-        markings=[pose(1,time_step)+intercept*cos(pose(3,time_step))+normal(1),intercept*sin(pose(3,time_step))+normal(2)];
-        visualizer(pose(:,time_step),markings,ranges)
+        %r = [cos(INIT_POS(3)), -sin(INIT_POS(3)); sin(INIT_POS(3)), cos(INIT_POS(3))];
+        %normal_vec=[normal]*r;
+        %markings=[pose(1,time_step)+intercept*cos(pose(3,time_step))+0.5*normal_vec(1),pose(2,time_step)+intercept*sin(pose(3,time_step))+0.5*normal_vec(2)];
+        %markings=[markings;pose(1,time_step)+intercept*cos(pose(3,time_step)),pose(2,time_step)+intercept*sin(pose(3,time_step))];
+        visualizer(pose(:,time_step),ranges)
     end
         waitfor(robot_sample_rate);
 end
