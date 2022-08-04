@@ -16,5 +16,5 @@ const=Constants;
     first_sample=[first_sample_x,first_sample_y];
     last_sample=[last_sample_x,last_sample_y];
     
-    wall_orientation=atan2(first_sample(2)-last_sample(2),first_sample(1)-last_sample(1));
+    wall_orientation=atan((first_sample(2)-last_sample(2))/(first_sample(1)-last_sample(1)));
 end

@@ -1,10 +1,9 @@
  classdef Constants
     properties( Constant = true )
-        obstacle_threshold=0.8;
-        distance_safety_factor=0.7;
-        orientation_error_threshold=deg2rad(20);
-        samples_angle=deg2rad(5);%[Rad]
-        obstacle_collision_deviation=5; %[Indice]
+        obstacle_threshold=0.5;
+        orientation_error_threshold=deg2rad(15);
+        samples_angle=deg2rad(20);%[Rad]
+        obstacle_collision_deviation=10; %[Indice]
         % Constantes del robot
          wheel_radius = 0.072/3;            %Radio de las ruedas [mts]
          wheel_separation = 0.235;          %Distancia entre ruedas [mts] 

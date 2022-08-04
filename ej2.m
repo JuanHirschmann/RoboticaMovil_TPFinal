@@ -50,7 +50,7 @@ y_lims=map.YWorldLimits;
 POSITION_LIMITS = [x_lims(2),x_lims(1);y_lims(2),x_lims(1);pi,-pi];
 
 visualizer = Visualizer2D();
-visualizer.hasWaypoints=false;
+visualizer.hasWaypoints=true;
 visualizer.mapName = 'map';
 attachLidarSensor(visualizer,lidar);
 release(visualizer);
@@ -66,11 +66,14 @@ slam_obj=robotics.LidarSLAM(MAP_RES,const.lidar_max_range);
 slam_obj.LoopClosureThreshold = 400;
 slam_obj.LoopClosureSearchRadius = 2;
 slam_obj.MovementThreshold=[0.5,0.25];
-state="check path";
+state="rotate";
 est_map=[];
 est_pose=[0,0,0];
 orientation_angle=0;
 normal=[0,0];
+path_blocked=true;
+correct_orientation=false;
+markings=[0,0];
 for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     
    %if length(w_ref) >time_step
@@ -121,55 +124,48 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     end
     ranges(ranges<0.2)=NaN;
     min_distance=distance_to_obstacle(ranges);
-    path_blocked=true;
-    correct_orientation=false;
-    if min_distance>const.obstacle_threshold 
+    if min_distance>const.obstacle_threshold &&~correct_orientation
+        state="move forward";
         path_blocked=false;
-        w_ref=w_ref(1:time_step-1);
-        v_ref=v_ref(1:time_step-1);
-    else
-        wall_orientation=wall_orientation_angle(ranges);
+    elseif min_distance<const.obstacle_threshold &&~correct_orientation
+        state="rotate";
+        path_blocked=true;
+    end
+    correct_orientation=false;
+    if w_cmd==0 
+        [wall_orientation,obstaculos]=calculate_orientation(ranges,false);
         orientation_error=abs(angdiff(wall_orientation,orientation_angle));
         
-        if orientation_error>const.orientation_error_threshold
-            w_ref=w_ref(1:time_step-1);
-            v_ref=v_ref(1:time_step-1);
-            correct_orientation=true;
-        
-        end
-    end
-    
-    
-    
-    
-    %%Ver si me alejo de la pared
-    if length(w_ref)<=time_step-1
-        %% rot angle
-        %% orientation error
-        
-        
-        
-        if ~path_blocked && ~correct_orientation
-            state="move foward";
-        else
-            [orientation_angle]=calculate_orientation(ranges,path_blocked);
+        if orientation_error>const.orientation_error_threshold 
             state="rotate";
+            display("ESTOY CORRIGIENDO___________________________")
+            %correct_orientation=true;
         end
+        
     end
-    if state=="move foward"
+    if state=="move forward" 
+        state
+        distance=min_distance;%distancia/sample_time=iteraciones
+        speed_cmd=move_foward_command(distance);
+        w_ref=w_ref(1:time_step-1);
+        v_ref=v_ref(1:time_step-1);
+        v_ref = [v_ref;speed_cmd(:,1)];
+        w_ref = [w_ref;speed_cmd(:,2)];
+        state="execute command";     
+    elseif state=="rotate" && correct_orientation==false
        state
-       distance=const.distance_safety_factor*min_distance;
-       speed_cmd=move_foward_command(distance);
+       if path_blocked==false
+          correct_orientation=true;
+       end
+       
+       [orientation_angle,obstaculos]=calculate_orientation(ranges,path_blocked);
+       speed_cmd=rotate_command(orientation_angle);
+       w_ref=w_ref(1:time_step-1);
+       v_ref=v_ref(1:time_step-1);
        v_ref = [v_ref;speed_cmd(:,1)];
        w_ref = [w_ref;speed_cmd(:,2)];
        state="execute command";
-    elseif state=="rotate" 
-       state
-       rotation_angle=orientation_angle;%angdiff(orientation_angle,est_pose(end,3));
-       speed_cmd=rotate_command(rotation_angle);
-       v_ref = [v_ref;speed_cmd(:,1)];
-       w_ref = [w_ref;speed_cmd(:,2)];
-       state="execute command";
+        
     elseif state=="execute command"
     end
     
@@ -186,17 +182,21 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         scatter(est_pose(end,1),est_pose(end,2),'filled','LineWidth',2);
         plot(est_pose(:,1),est_pose(:,2),'LineWidth',2);
         quiver(est_pose(end,1),est_pose(end,2),cos(est_pose(end,3)),sin(est_pose(end,3)),0.5,'filled','LineWidth',2);
+        obstaculo_1=obstaculos(1,:);
+        obstaculo_2=obstaculos(2,:);
+        scatter(est_pose(end,1)+obstaculo_1(1),est_pose(end,2)+obstaculo_1(2),'filled','LineWidth',2);
+        scatter(est_pose(end,1)+obstaculo_2(1),est_pose(end,2)+obstaculo_2(2),'filled','LineWidth',2);
         axis([-3 3 -2.5 2.5])
         hold off;
         
     
     else
-        intercept=ranges(int32(length(ranges)/2));
-        %r = [cos(INIT_POS(3)), -sin(INIT_POS(3)); sin(INIT_POS(3)), cos(INIT_POS(3))];
-        %normal_vec=[normal]*r;
-        %markings=[pose(1,time_step)+intercept*cos(pose(3,time_step))+0.5*normal_vec(1),pose(2,time_step)+intercept*sin(pose(3,time_step))+0.5*normal_vec(2)];
-        %markings=[markings;pose(1,time_step)+intercept*cos(pose(3,time_step)),pose(2,time_step)+intercept*sin(pose(3,time_step))];
-        visualizer(pose(:,time_step),ranges)
+        r = [cos(INIT_POS(3)), -sin(INIT_POS(3)); sin(INIT_POS(3)), cos(INIT_POS(3))];
+        obstaculo_1=obstaculos(1,:)*r;
+        obstaculo_2=obstaculos(2,:)*r;
+        markings=[pose(1,time_step)-obstaculo_1(1),pose(2,time_step)-obstaculo_1(2)];
+        markings=[markings;pose(1,time_step)-obstaculo_2(1),pose(2,time_step)-obstaculo_2(2)];
+        visualizer(pose(:,time_step),markings,ranges)
     end
         waitfor(robot_sample_rate);
 end
