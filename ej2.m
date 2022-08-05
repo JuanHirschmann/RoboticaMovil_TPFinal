@@ -25,7 +25,7 @@ MAP_IMG = 1-double(imread('mapa_2022_1c.tiff'))/255;
 map = robotics.OccupancyGrid(MAP_IMG, 25);
 %% Parametros de la Simulacion
 SIMULATION_DURATION = 3*60;          % Duracion total [s]
-INIT_POS =[2,1,-pi/2];%random_empty_point(map);% [2,1,-pi/2]
+INIT_POS =random_empty_point(map);% [2,1,-pi/2]
 %% Crear sensor lidar en simulador
 lidar = LidarSensor;
 lidar.sensorOffset = const.lidar_offset;   
@@ -50,7 +50,7 @@ y_lims=map.YWorldLimits;
 POSITION_LIMITS = [x_lims(2),x_lims(1);y_lims(2),x_lims(1);pi,-pi];
 
 visualizer = Visualizer2D();
-visualizer.hasWaypoints=true;
+visualizer.hasWaypoints=false;
 visualizer.mapName = 'map';
 attachLidarSensor(visualizer,lidar);
 release(visualizer);
@@ -73,7 +73,8 @@ orientation_angle=0;
 normal=[0,0];
 path_blocked=true;
 correct_orientation=false;
-markings=[0,0];
+%markings=[0,0];
+left=false;
 for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     
    %if length(w_ref) >time_step
@@ -129,19 +130,27 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         path_blocked=false;
     elseif min_distance<const.obstacle_threshold &&~correct_orientation
         state="rotate";
+        [orientation_angle]=calculate_orientation(ranges,path_blocked,left);
         path_blocked=true;
     end
     correct_orientation=false;
-    if w_cmd==0 
-        [wall_orientation,obstaculos]=calculate_orientation(ranges,false);
+    
+    if w_cmd==0 && mod(time_step,20)==0
+        [wall_orientation]=calculate_orientation(ranges,false,left);
         orientation_error=abs(angdiff(wall_orientation,orientation_angle));
         
         if orientation_error>const.orientation_error_threshold 
             state="rotate";
-            display("ESTOY CORRIGIENDO___________________________")
-            %correct_orientation=true;
+            [orientation_angle]=calculate_orientation(ranges,path_blocked,left);
         end
         
+    end
+    if time_step==900 && ~left 
+        state="rotate";
+        time_step
+        orientation_angle=-pi;
+        left=true;
+        correct_orientation=false;
     end
     if state=="move forward" 
         state
@@ -158,7 +167,7 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
           correct_orientation=true;
        end
        
-       [orientation_angle,obstaculos]=calculate_orientation(ranges,path_blocked);
+       orientation_angle
        speed_cmd=rotate_command(orientation_angle);
        w_ref=w_ref(1:time_step-1);
        v_ref=v_ref(1:time_step-1);
@@ -171,7 +180,6 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     
     figure(1)
     if time_step==2 ||mod(time_step,10)==0
-        %Ver de poner en una función sola
         
         ranges=process_measurement(slam_obj,ranges);
         [scans_slam,est_pose] = scansAndPoses(slam_obj);
@@ -182,21 +190,21 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         scatter(est_pose(end,1),est_pose(end,2),'filled','LineWidth',2);
         plot(est_pose(:,1),est_pose(:,2),'LineWidth',2);
         quiver(est_pose(end,1),est_pose(end,2),cos(est_pose(end,3)),sin(est_pose(end,3)),0.5,'filled','LineWidth',2);
-        obstaculo_1=obstaculos(1,:);
-        obstaculo_2=obstaculos(2,:);
-        scatter(est_pose(end,1)+obstaculo_1(1),est_pose(end,2)+obstaculo_1(2),'filled','LineWidth',2);
-        scatter(est_pose(end,1)+obstaculo_2(1),est_pose(end,2)+obstaculo_2(2),'filled','LineWidth',2);
+        %obstaculo_1=obstaculos(1,:);
+        %obstaculo_2=obstaculos(2,:);
+        %scatter(est_pose(end,1)+obstaculo_1(1),est_pose(end,2)+obstaculo_1(2),'filled','LineWidth',2);
+        %scatter(est_pose(end,1)+obstaculo_2(1),est_pose(end,2)+obstaculo_2(2),'filled','LineWidth',2);
         axis([-3 3 -2.5 2.5])
         hold off;
         
     
     else
-        r = [cos(INIT_POS(3)), -sin(INIT_POS(3)); sin(INIT_POS(3)), cos(INIT_POS(3))];
-        obstaculo_1=obstaculos(1,:)*r;
-        obstaculo_2=obstaculos(2,:)*r;
-        markings=[pose(1,time_step)-obstaculo_1(1),pose(2,time_step)-obstaculo_1(2)];
-        markings=[markings;pose(1,time_step)-obstaculo_2(1),pose(2,time_step)-obstaculo_2(2)];
-        visualizer(pose(:,time_step),markings,ranges)
+        %r = [cos(INIT_POS(3)), -sin(INIT_POS(3)); sin(INIT_POS(3)), cos(INIT_POS(3))];
+        %obstaculo_1=obstaculos(1,:)*r;
+        %obstaculo_2=obstaculos(2,:)*r;
+        %markings=[pose(1,time_step)-obstaculo_1(1),pose(2,time_step)-obstaculo_1(2)];
+        %markings=[markings;pose(1,time_step)-obstaculo_2(1),pose(2,time_step)-obstaculo_2(2)];
+        visualizer(pose(:,time_step),ranges)
     end
         waitfor(robot_sample_rate);
 end

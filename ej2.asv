@@ -74,6 +74,7 @@ normal=[0,0];
 path_blocked=true;
 correct_orientation=false;
 markings=[0,0];
+left=false;
 for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
     
    %if length(w_ref) >time_step
@@ -129,19 +130,29 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         path_blocked=false;
     elseif min_distance<const.obstacle_threshold &&~correct_orientation
         state="rotate";
+        [orientation_angle,obstaculos]=calculate_orientation(ranges,path_blocked,left);
         path_blocked=true;
     end
+    
     correct_orientation=false;
-    if w_cmd==0 
-        [wall_orientation,obstaculos]=calculate_orientation(ranges,false);
+    if w_cmd==0 && mod(time_step,50)==0
+        [wall_orientation,obstaculos]=calculate_orientation(ranges,false,left);
         orientation_error=abs(angdiff(wall_orientation,orientation_angle));
         
         if orientation_error>const.orientation_error_threshold 
             state="rotate";
             display("ESTOY CORRIGIENDO___________________________")
+            [orientation_angle,obstaculos]=calculate_orientation(ranges,path_blocked,left);
             %correct_orientation=true;
         end
         
+    end
+    if norm(est_pose(1,1:2)-est_pose(end,1:2))<1 &&time_step>1000 && ~left
+        state="rotate";
+        display("Media vuelta")
+        orientation_angle=pi;
+        correct_orientation=false
+        left=true;
     end
     if state=="move forward" 
         state
@@ -152,13 +163,14 @@ for time_step = 2:length(time_vec) % Itera sobre todo el tiempo de simulación
         v_ref = [v_ref;speed_cmd(:,1)];
         w_ref = [w_ref;speed_cmd(:,2)];
         state="execute command";     
-    elseif state=="rotate"
+    elseif state=="rotate" && correct_orientation==false
        state
        if path_blocked==false
           correct_orientation=true;
        end
        
-       [orientation_angle,obstaculos]=calculate_orientation(ranges,path_blocked);
+       %[orientation_angle,obstaculos]=calculate_orientation(ranges,path_blocked,left);
+       orientation_angle
        speed_cmd=rotate_command(orientation_angle);
        w_ref=w_ref(1:time_step-1);
        v_ref=v_ref(1:time_step-1);

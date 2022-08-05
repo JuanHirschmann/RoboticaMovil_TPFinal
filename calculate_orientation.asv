@@ -1,4 +1,4 @@
-function [orientation_angle]=calculate_orientation(ranges,blocked_path,left)
+function [orientation_angle,obstacles]=calculate_orientation(ranges,blocked_path,left)
     if ~left
         const=Constants;
         ranges=fillmissing(ranges,'linear'); %Trato nan interpolando
